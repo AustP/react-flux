@@ -1,0 +1,26 @@
+{
+  "name": "react-flux",
+  "version": "1.0.0",
+  "description": "A React flux implementation with a focus on side-effects and global state.",
+  "main": "flux.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AustP/react-flux.git"
+  },
+  "keywords": [
+    "react",
+    "flux",
+    "event",
+    "state",
+    "management"
+  ],
+  "author": "AustP",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/AustP/react-flux/issues"
+  },
+  "homepage": "https://github.com/AustP/react-flux#readme"
+}
