@@ -1,19 +1,27 @@
+import { UnknownObject } from './global';
+
+type Entry = {
+  args: unknown[];
+  fn: string;
+};
+
 // keep track of the order that the logs come in
 let order = 0;
 
 /**
  * Gets the difference between two arrays
- *
- * @param array from
- * @param array to
- * @return mixed
  */
-const getArrayDiff = (from, to) => {
-  let result = [];
+const getArrayDiff = (
+  from: unknown[],
+  to: unknown[],
+): unknown[] | undefined => {
+  const result: unknown[] = [];
   for (const index in to) {
-    const diff = getDiff(from[index], to[index]);
-    if (diff !== undefined) {
-      result.push(diff);
+    if (to.hasOwnProperty(index)) {
+      const diff = getDiff(from[index], to[index]);
+      if (diff !== undefined) {
+        result.push(diff);
+      }
     }
   }
 
@@ -26,12 +34,8 @@ const getArrayDiff = (from, to) => {
 
 /**
  * Gets the difference between two values
- *
- * @param mixed from
- * @param mixed to
- * @return mixed
  */
-const getDiff = (from, to) => {
+const getDiff = (from: any, to: any): any => {
   if (isPlainObject(from) && isPlainObject(to)) {
     return getObjectDiff(from, to);
   } else if (Array.isArray(from) && Array.isArray(to)) {
@@ -45,17 +49,18 @@ const getDiff = (from, to) => {
 
 /**
  * Gets the difference between two objects
- *
- * @param object from
- * @param object to
- * @return mixed
  */
-const getObjectDiff = (from, to) => {
-  let result = {};
+const getObjectDiff = (
+  from: UnknownObject,
+  to: UnknownObject,
+): UnknownObject | undefined => {
+  const result: UnknownObject = {};
   for (const key in to) {
-    const diff = getDiff(from[key], to[key]);
-    if (diff !== undefined) {
-      result[key] = diff;
+    if (to.hasOwnProperty(key)) {
+      const diff = getDiff(from[key], to[key]);
+      if (diff !== undefined) {
+        result[key] = diff;
+      }
     }
   }
 
@@ -68,11 +73,10 @@ const getObjectDiff = (from, to) => {
 
 /**
  * Gets the current timestamp
- *
- * @return string
  */
-const getTimestamp = () => {
-  const pad = (value, number = 2) => ('' + value).padStart(number, '0');
+const getTimestamp = (): string => {
+  const pad = (value: number, length: number = 2): string =>
+    ('' + value).padStart(length, '0');
 
   const time = new Date();
   const h = time.getHours();
@@ -85,11 +89,8 @@ const getTimestamp = () => {
 
 /**
  * Checks to see if the object is a plain old javascript object
- *
- * @param mixed maybeObject
- * @return bool
  */
-const isPlainObject = (maybeObject) => {
+const isPlainObject = (maybeObject: any): boolean => {
   if (typeof maybeObject === 'object' && maybeObject !== null) {
     const prototype = Object.getPrototypeOf(maybeObject);
     return prototype === Object.prototype || prototype === null;
@@ -99,16 +100,22 @@ const isPlainObject = (maybeObject) => {
 };
 
 export default class EventLogger {
+  args: unknown[];
+  children: EventLogger[];
+  entries: Entry[];
+  parent: EventLogger | null;
+  resolved: boolean;
+  warningTimeout: number | undefined;
+
   /**
    * Creates a new EventLogger instance
-   *
-   * @param EventLogger parrentLogger
-   * @param string event
-   * @param number warningTimeout
-   * @param array ...payload
-   * @return EventLogger
    */
-  constructor(parentLogger, event, warningTimeout, ...payload) {
+  constructor(
+    parentLogger: EventLogger | null,
+    event: string,
+    warningTimeout: number,
+    ...payload: unknown[]
+  ) {
     this.args = [event, '', ...payload, '', ++order, '', `${getTimestamp()}`];
     this.children = [];
     this.entries = [];
@@ -117,12 +124,13 @@ export default class EventLogger {
     this.warningTimeout =
       parentLogger === null
         ? setTimeout(() => {
+            // tslint:disable-next-line no-console
             console.warn(
               `The event '${event}' was dispatched, but it's taking a while ` +
                 `to resolve.`,
             );
           }, warningTimeout)
-        : null;
+        : undefined;
 
     // if another logger is unresolved, this logger is a child of it
     if (this.parent) {
@@ -132,43 +140,35 @@ export default class EventLogger {
 
   /**
    * Adds a logger as a child
-   *
-   * @param EventLogger logger
    */
-  addChild(logger) {
+  addChild(logger: EventLogger): void {
     this.children.push(logger);
   }
 
   /**
    * Adds a log entry
-   *
-   * @param string fn The name of the console method to call
-   * @param array ...args The arguments to pass to the method call
    */
-  addEntry(fn, ...args) {
+  addEntry(fn: string, ...args: unknown[]) {
     // we want to spice up the arguments for calls to groupCollapsed
     if (fn === 'groupCollapsed') {
       args = [...args, '', ++order, '', `${getTimestamp()}`];
     }
 
     this.entries.push({
-      args: args,
+      args,
       fn,
     });
   }
 
   /**
    * Checks to see if the given subject is in the logger tree
-   *
-   * @param EventLogger subject
-   * @return bool
    */
-  contains(subject) {
+  contains(subject: EventLogger): boolean {
     if (subject === null) {
       return false;
     }
 
-    for (let child of this.children) {
+    for (const child of this.children) {
       if (child === subject) {
         return true;
       } else {
@@ -181,10 +181,8 @@ export default class EventLogger {
 
   /**
    * Gets the top-most logger
-   *
-   * @return EventLogger
    */
-  getTop() {
+  getTop(): EventLogger {
     if (this.parent) {
       return this.parent.getTop();
     }
@@ -194,15 +192,13 @@ export default class EventLogger {
 
   /**
    * Checks to see if the logger tree is resolved
-   *
-   * @return bool
    */
-  isResolved() {
+  isResolved(): boolean {
     if (!this.resolved) {
       return false;
     }
 
-    for (let child of this.children) {
+    for (const child of this.children) {
       if (!child.isResolved()) {
         return false;
       }
@@ -214,27 +210,27 @@ export default class EventLogger {
   /**
    * Logs the logger tree
    */
-  log() {
-    console.groupCollapsed(...this.args);
-    for (let child of this.children) {
+  log(): void {
+    // although this.args is unknown[], we will rely on default toString
+    // methods to log whatever the user supplies to us
+    // tslint:disable-next-line no-console
+    console.groupCollapsed(...(this.args as string[]));
+    for (const child of this.children) {
       child.log();
     }
 
-    for (let entry of this.entries) {
-      console[entry.fn](...entry.args);
+    for (const entry of this.entries) {
+      console[entry.fn as keyof typeof console](...entry.args);
     }
 
+    // tslint:disable-next-line no-console
     console.groupEnd();
   }
 
   /**
    * Adds entries that will log the difference between the two objects
-   *
-   * @param string namespace
-   * @param object from
-   * @param object to
    */
-  logDiff(namespace, from, to) {
+  logDiff(namespace: string, from?: object, to?: object): void {
     this.addEntry(
       'groupCollapsed',
       `Changes for ${namespace}`,
@@ -247,37 +243,29 @@ export default class EventLogger {
 
   /**
    * Adds entries that will log the state with a message of Error Reducing
-   *
-   * @param object state
    */
-  logErrorReducing(namespace, state) {
+  logErrorReducing(namespace: string, state?: object): void {
     this.logState(`Error reducing for ${namespace}`, state);
   }
 
   /**
    * Adds entries that will log the state with a message of Error Reducing
-   *
-   * @param object state
    */
-  logErrorRunningSideEffects(namespace, state) {
+  logErrorRunningSideEffects(namespace: string, state?: object) {
     this.logState(`Error running side-effects for ${namespace}`, state);
   }
 
   /**
    * Adds entries that will log the state with a message of No Changes
-   *
-   * @param object state
    */
-  logNoChanges(namespace, state) {
+  logNoChanges(namespace: string, state?: object) {
     this.logState(`No changes for ${namespace}`, state);
   }
 
   /**
    * Adds entries that will log the state with a message of No Reducers
-   *
-   * @param object state
    */
-  logNoReducers(namespace, state) {
+  logNoReducers(namespace?: string, state?: object) {
     if (namespace) {
       this.logState(`No reducers for ${namespace}`, state);
     } else {
@@ -287,11 +275,8 @@ export default class EventLogger {
 
   /**
    * Adds entries that will log the state with a message
-   *
-   * @param string message
-   * @param object state
    */
-  logState(message, state) {
+  logState(message: string, state?: object): void {
     this.addEntry('groupCollapsed', message);
     this.addEntry('log', 'Current State', state);
     this.addEntry('groupEnd');
@@ -301,10 +286,10 @@ export default class EventLogger {
    * Resolves this logger
    * If all of the loggers in the tree are resolved, they will be logged
    */
-  resolve() {
+  resolve(): void {
     this.resolved = true;
 
-    let top = this.getTop();
+    const top = this.getTop();
     if (top.isResolved()) {
       clearTimeout(top.warningTimeout);
       top.log();

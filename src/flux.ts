@@ -1,28 +1,44 @@
-import { fromJS, is, isImmutable, Map } from 'immutable';
+import { fromJS, is, Map } from 'immutable';
 import { useEffect, useRef } from 'react';
 
-import global from './global';
+import global, { UnknownObject } from './global';
 import EventLogger from './EventLogger';
-import Store from './Store';
+import Store, {
+  DispatchCallback,
+  Reducer,
+  SideEffect,
+  SideEffectRunner,
+  State,
+  UnregisterCallback,
+} from './Store';
 
-let fluxIsReducing = null;
+type ResolvedSideEffect = {
+  reducer: Reducer | void;
+  store: Store;
+};
+type StatusObject = {
+  dispatching: boolean;
+  error: Error | null;
+  payload: any[];
+};
+
+let fluxIsReducing: Promise<void> | null = null;
 
 // the options for the system
-let options = {
+const options = {
   displayLogs: true,
   longDispatchTimeout: 5000,
 };
 
 // store management
-let stores = {};
+const stores: {
+  [namespace: string]: Store;
+} = {};
 
 /**
  * Adds a store to the system
- *
- * @param string namespace
- * @param object initialState
  */
-const addStore = (namespace, initialState) => {
+const addStore = (namespace: string, initialState: UnknownObject): Store => {
   if (namespace.indexOf('.') !== -1 || namespace.indexOf('/') !== -1) {
     throw new Error(`Store names cannot contain a period or forward-slash.`);
   }
@@ -33,10 +49,8 @@ const addStore = (namespace, initialState) => {
 
 /**
  * Makes sure the event is formatted correctly
- *
- * @param string event
  */
-const assertEventFormat = (event) => {
+const assertEventFormat = (event: string): void => {
   if (event.indexOf('/') === -1) {
     throw new Error(
       `Events must be formatted like: 'namespace/event'. Received: '${event}'.`,
@@ -46,34 +60,32 @@ const assertEventFormat = (event) => {
 
 /**
  * Dispatch the flux/error event
- *
- * @param string event
- * @param Error err
- * @param array ...payload
  */
-const dispatchError = (event, err, ...payload) => {
+const dispatchError = (
+  event: string,
+  err: Error,
+  ...payload: unknown[]
+): number =>
   // wrap in a timeout so the error will be logged after the current event
   setTimeout(
     () => dispatchWhenAllowed(null, 'flux/error', event, err, ...payload),
     0,
   );
-};
 
 /**
  * Dispatched the event immediately
- *
- * @param EventLogger parentLogger
- * @param string event
- * @param array ...payload
- * @return Promise
  */
-const dispatchImmediately = (parentLogger, event, ...payload) => {
-  const promise = new Promise(async (resolve) => {
+const dispatchImmediately = (
+  parentLogger: EventLogger | null,
+  event: string,
+  ...payload: unknown[]
+): Promise<void> => {
+  const promise = new Promise<void>(async (resolve) => {
     setEventStatus(event, 'dispatching', true);
     setEventStatus(event, 'error', null);
     setEventStatus(event, 'payload', payload);
 
-    let logger;
+    let logger: EventLogger | null = null;
     if (options.displayLogs) {
       logger = new EventLogger(
         parentLogger,
@@ -84,44 +96,48 @@ const dispatchImmediately = (parentLogger, event, ...payload) => {
     }
 
     // start running side-effects
-    let lastStore = null;
+    let lastStore: null | Store = null;
     try {
-      let sideEffects = [];
+      let sideEffects: SideEffect[] = [];
       for (const namespace in stores) {
-        const store = stores[namespace];
-        lastStore = store;
+        if (stores.hasOwnProperty(namespace)) {
+          const store = stores[namespace];
+          lastStore = store;
 
-        // we create a dispatch function that side-effects can use
-        // this ensures that the logging hierarchy is setup correctly
-        const dispatch = (event, ...payload) =>
-          dispatchWhenAllowed(logger, event, ...payload);
+          // we create a dispatch function that side-effects can use
+          // this ensures that the logging hierarchy is setup correctly
+          const dispatch: DispatchCallback = (event, ...payload) =>
+            dispatchWhenAllowed(logger, event, ...payload);
 
-        // collect all of the side effects that the store started
-        sideEffects = sideEffects.concat(
-          store.startSideEffects(dispatch, event, ...payload),
-        );
+          // collect all of the side effects that the store started
+          sideEffects = sideEffects.concat(
+            store.startSideEffects(dispatch, event, ...payload),
+          );
+        }
       }
 
       // we need to keep track of which store goes with which reducer
       // the following code is basically Promise.all
-      const reducers = await new Promise((resolve, reject) => {
-        let result = [];
-        let remaining = sideEffects.length;
-        if (remaining === 0) {
-          resolve(result);
-        }
+      const reducers = await new Promise<ResolvedSideEffect[]>(
+        (resolve, reject) => {
+          const result: ResolvedSideEffect[] = [];
+          let remaining = sideEffects.length;
+          if (remaining === 0) {
+            resolve(result);
+          }
 
-        sideEffects.forEach(({ promise, store }, index) =>
-          promise
-            .then((reducer) => {
-              result[index] = { reducer, store };
-              if (--remaining === 0) {
-                resolve(result);
-              }
-            })
-            .catch(reject),
-        );
-      });
+          sideEffects.forEach(({ promise, store }, index) =>
+            promise
+              .then((reducer) => {
+                result[index] = { reducer, store };
+                if (--remaining === 0) {
+                  resolve(result);
+                }
+              })
+              .catch(reject),
+          );
+        },
+      );
 
       // start reducing
       try {
@@ -130,7 +146,7 @@ const dispatchImmediately = (parentLogger, event, ...payload) => {
         // loop through the reducers one at a time and reduce the state
         let reducerCount = 0;
         for (const { reducer, store } of reducers) {
-          if (reducer === null || reducer === undefined) {
+          if (reducer === undefined) {
             continue;
           } else if (typeof reducer !== 'function') {
             throw new Error(`Invalid reducer returned for '${event}'.`);
@@ -143,25 +159,28 @@ const dispatchImmediately = (parentLogger, event, ...payload) => {
 
           const [updated, oldState, newState] = store.reduce(reducer);
           if (logger && updated) {
-            logger.logDiff(store.namespace, toJS(oldState), toJS(newState));
+            logger.logDiff(store.namespace, oldState.toJS(), newState.toJS());
           } else if (logger) {
-            logger.logNoChanges(store.namespace, toJS(oldState));
+            logger.logNoChanges(store.namespace, oldState.toJS());
           }
         }
 
         if (logger && reducerCount === 0) {
           const store = stores[getEventNamespace(event)];
           if (store) {
-            logger.logNoReducers(store.namespace, toJS(store.selectState()));
+            logger.logNoReducers(
+              store.namespace,
+              (store.selectState() as State).toJS(),
+            );
           } else {
             logger.logNoReducers(undefined, undefined);
           }
         }
       } catch (err) {
-        if (logger) {
+        if (logger && lastStore) {
           logger.logErrorReducing(
             lastStore.namespace,
-            toJS(lastStore.selectState()),
+            (lastStore.selectState() as State).toJS(),
           );
         }
 
@@ -175,10 +194,10 @@ const dispatchImmediately = (parentLogger, event, ...payload) => {
 
       fluxIsReducing = null;
     } catch (err) {
-      if (logger) {
+      if (logger && lastStore) {
         logger.logErrorRunningSideEffects(
           lastStore.namespace,
-          toJS(lastStore.selectState()),
+          (lastStore.selectState() as State).toJS(),
         );
       }
 
@@ -204,13 +223,12 @@ const dispatchImmediately = (parentLogger, event, ...payload) => {
 /**
  * Dispatches the event unless one is currently dispatching,
  * in which case, it queues the dispatch to take place next
- *
- * @param EventLogger parentLogger
- * @param string event
- * @param array ...payload
- * @return Promise
  */
-const dispatchWhenAllowed = async (parentLogger, event, ...payload) => {
+const dispatchWhenAllowed = async (
+  parentLogger: EventLogger | null,
+  event: string,
+  ...payload: unknown[]
+): Promise<void> => {
   // fluxIsReducing will either be a promise (so we can await it) or null
   // doing this allows us to piggy-back on JS' queue system
   if (fluxIsReducing) {
@@ -223,114 +241,88 @@ const dispatchWhenAllowed = async (parentLogger, event, ...payload) => {
 
 /**
  * Gets the namespace from the specified event
- *
- * @param string event
- * @return string
  */
-const getEventNamespace = (event) => {
+const getEventNamespace = (event: string): string => {
   assertEventFormat(event);
   return event.split('/')[0];
 };
 
 /**
  * Gets the event status from the global state
- *
- * @param string getStateFn ['selectState', 'useState']
- * @param string event
- * @return mixed
  */
-const getEventStatus = (getStateFn, event) => {
+const getEventStatus = (
+  getStateFn: 'selectState' | 'useState',
+  event: string,
+): StatusObject => {
   assertEventFormat(event);
 
-  let state;
+  let state: State | undefined;
   if (getStateFn === 'selectState') {
-    state = global.selectState(event);
+    state = global.selectState(event) as State;
   } else if (getStateFn === 'useState') {
-    state = global.useState(event)[0];
+    state = global.useState(event)[0] as State;
   }
 
-  state = (state && state.toJS()) || {
+  const statusObject: StatusObject = {
     dispatching: false,
     error: null,
     payload: [],
   };
 
-  return state;
+  return (state && (state.toJS() as StatusObject)) || statusObject;
 };
 
 /**
  * Checks to see if the given store has been added
- *
- * @param string namespace
- * @return bool
  */
-const isStoreAdded = (namespace) => stores[namespace] !== undefined;
+const isStoreAdded = (namespace: string): boolean =>
+  stores[namespace] !== undefined;
 
 /**
  * Accesses the status of the event
  * This method call does not register for updates so the value could be stale
- *
- * @param string event
- * @return mixed
  */
-const selectStatus = (event) => getEventStatus('selectState', event);
+const selectStatus = (event: string): StatusObject =>
+  getEventStatus('selectState', event);
 
 /**
  * Sets the event status in the global state
- *
- * @param string event
- * @param string property
- * @param mixed value
  */
-const setEventStatus = (event, property, value) => {
+const setEventStatus = (event: string, property: string, value: any): void => {
   assertEventFormat(event);
 
   global.setState(
     event,
-    (global.selectState(event) || Map()).set(property, value),
+    ((global.selectState(event) as State | undefined) || Map()).set(
+      property,
+      value,
+    ),
   );
 };
 
 /**
  * Sets the option to the specified value
- *
- * @param string option
- * @param bool value
  */
-const setOption = (option, value) => (options[option] = value);
-
-/**
- * Makes sure the passed object gets returned as a pure JS object
- *
- * @param mixed maybeImmutable
- * @return mixed
- */
-const toJS = (maybeImmutable) => {
-  if (isImmutable(maybeImmutable)) {
-    return maybeImmutable.toJS();
-  }
-
-  return maybeImmutable;
-};
+const setOption = (
+  option: 'displayLogs' | 'longDispatchTimeout',
+  value: boolean | number,
+): boolean | number => ((options[option] as boolean | number) = value);
 
 /**
  * Accesses the status of the event
  * This method call registers for updates so the value is always up-to-date
- *
- * @param string event
- * @return mixed
  */
-const useStatus = (event) => getEventStatus('useState', event);
+const useStatus = (event: string): StatusObject =>
+  getEventStatus('useState', event);
 
 /**
  * Setups up a store from within a component
- *
- * @param string namespace
- * @param object initialState {property: value}
- * @param object sideEffectRunners {event: sideEffect}
- * @return object
  */
-const useStore = (namespace, initialState, sideEffectRunners) => {
+const useStore = (
+  namespace: string,
+  initialState: UnknownObject,
+  sideEffectRunners: SideEffectRunner[],
+): UnknownObject => {
   // only call addStore if the store hasn't been previously added
   // this makes fast refresh work with useStore
   if (!isStoreAdded(namespace)) {
@@ -349,37 +341,50 @@ const useStore = (namespace, initialState, sideEffectRunners) => {
   // we won't have any memory leaks
   useEffect(() => {
     const sideEffectRunners = ref.current;
-    let unregisters = [];
+    const unregisterCallbacks: UnregisterCallback[] = [];
     for (const event in sideEffectRunners) {
-      unregisters.push(
-        stores[namespace].register(
-          `${namespace}/${event}`,
-          sideEffectRunners[event],
-        ),
-      );
+      if (sideEffectRunners.hasOwnProperty(event)) {
+        unregisterCallbacks.push(
+          stores[namespace].register(
+            `${namespace}/${event}`,
+            sideEffectRunners[event],
+          ),
+        );
+      }
     }
 
-    return () => unregisters.forEach((unregister) => unregister());
+    return () => unregisterCallbacks.forEach((unregister) => unregister());
   }, [namespace, ref]);
 
   // use useState to register this hook to update on state changes
-  let result = {};
-  const state = stores[namespace].useState();
+  const result: UnknownObject = {};
+  const state = stores[namespace].useState() as State;
   for (const property in initialState) {
-    result[property] = state.get(property, undefined);
+    if (initialState.hasOwnProperty(property)) {
+      result[property] = state.get(property, undefined);
+    }
   }
 
   return result;
 };
 
-const getPropertyDescriptor = (value) => ({ value });
+const getPropertyDescriptor = (value: any): any => ({ value });
 export default Object.create(stores, {
   addStore: getPropertyDescriptor(addStore),
-  dispatch: getPropertyDescriptor((event, ...payload) =>
+  dispatch: getPropertyDescriptor((event: string, ...payload: unknown[]) =>
     dispatchWhenAllowed(null, event, ...payload),
   ),
   selectStatus: getPropertyDescriptor(selectStatus),
   setOption: getPropertyDescriptor(setOption),
   useStatus: getPropertyDescriptor(useStatus),
   useStore: getPropertyDescriptor(useStore),
-});
+}) as {
+  addStore: typeof addStore;
+  dispatch: DispatchCallback;
+  selectStatus: typeof selectStatus;
+  setOption: typeof setOption;
+  useStatus: typeof useStatus;
+  useStore: typeof useStore;
+} & {
+  [namespace: string]: Store;
+};

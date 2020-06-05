@@ -1,58 +1,58 @@
 import { fromJS, is } from 'immutable';
 import { useCallback, useEffect, useState as useReactState } from 'react';
 
+type SetValueCallback = (value: unknown) => boolean;
+type Subscription = (value: unknown) => void;
+type UnknownObject = { [key: string]: unknown };
+type UnsubscribeCallback = () => void;
+
 // the global state
-let global = {};
+const global: UnknownObject = {};
 
 // subscription management variables
-let subscriptionKey = 0;
-let subscriptions = {};
+let subscriptionKey: number = 0;
+const subscriptions: {
+  [property: string]: {
+    [subscriptionKey: number]: Subscription;
+  };
+} = {};
 
 /**
  * Checks if the values are different
  * Uses immutable so objects with the same properties are considered the same
- *
- * @param mixed first
- * @param mixed second
- *
- * @return bool
  */
-const areValuesDifferent = (first, second) =>
+const areValuesDifferent = (first: unknown, second: unknown): boolean =>
   !is(fromJS(first), fromJS(second));
 
 /**
  * Helper method to set multiple values at once (usually on init)
- *
- * @param obj state
  */
-const init = (state) => {
-  for (let key in state) {
-    setState(key, state[key]);
+const init = (state: UnknownObject): void => {
+  for (const key in state) {
+    if (state.hasOwnProperty(key)) {
+      setState(key, state[key]);
+    }
   }
 };
 
 /**
  * Selects the specified property from the global state
- *
- * @param string property
- * @return mixed
  */
-const selectState = (property) => global[property];
+const selectState = (property: string): unknown => global[property];
 
 /**
  * Sets the property to the specified value
  * Informs subscribers that the property was changed
- *
- * @param string property
- * @param mixed value
- * @return bool Whether or not the state was changed
+ * Returns whether or not the state was changed
  */
-const setState = (property, value) => {
+const setState = (property: string, value: unknown): boolean => {
   if (areValuesDifferent(global[property], value)) {
     global[property] = value;
 
-    for (let key in subscriptions[property]) {
-      subscriptions[property][key](value);
+    for (const key in subscriptions[property]) {
+      if (subscriptions[property].hasOwnProperty(key)) {
+        subscriptions[property][key](value);
+      }
     }
 
     return true;
@@ -63,20 +63,19 @@ const setState = (property, value) => {
 
 /**
  * Subscribes the callback to be called whenever the property changes
- *
- * @param string property
- * @param func subscription
- * @return func A callback function that unsubscribes to changes
  */
-const subscribe = (property, subscription) => {
+const subscribe = (
+  property: string,
+  subscription: Subscription,
+): UnsubscribeCallback => {
   if (!subscriptions[property]) {
     subscriptions[property] = {};
   }
 
-  let key = subscriptionKey++;
+  const key = subscriptionKey++;
   subscriptions[property][key] = subscription;
 
-  return () => {
+  return (): void => {
     delete subscriptions[property][key];
   };
 };
@@ -84,13 +83,10 @@ const subscribe = (property, subscription) => {
 /**
  * Gets the specified property from the global state
  * Subscribes for any changes made via set
- *
- * @param string property
- * @return array An array matching useState's return i.e. [value, setValue]
  */
-const useState = (property) => {
-  let globalValue = selectState(property);
-  let [reactValue, setReactValue] = useReactState(globalValue);
+const useState = (property: string): [unknown, SetValueCallback] => {
+  const globalValue = selectState(property);
+  const [reactValue, setReactValue] = useReactState(globalValue);
 
   // wrap our subscription in useEffect so
   // we can unsubscribe when the component unmounts
@@ -101,8 +97,9 @@ const useState = (property) => {
 
   return [
     reactValue,
-    useCallback((value) => setState(property, value), [property]),
+    useCallback((value: unknown) => setState(property, value), [property]),
   ];
 };
 
 export default { init, selectState, setState, useState };
+export { UnknownObject };

@@ -1,26 +1,44 @@
 {
-  "name": "react-flux",
-  "version": "1.0.0",
-  "description": "A React flux implementation with a focus on side-effects and global state.",
-  "main": "flux.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AustP/react-flux.git"
-  },
-  "keywords": [
-    "react",
-    "flux",
-    "event",
-    "state",
-    "management"
-  ],
   "author": "AustP",
-  "license": "MIT",
   "bugs": {
     "url": "https://github.com/AustP/react-flux/issues"
   },
-  "homepage": "https://github.com/AustP/react-flux#readme"
+  "dependencies": {
+    "immutable": "^4.0.0-rc.12"
+  },
+  "description": "A React flux implementation with a focus on side-effects and global state.",
+  "devDependencies": {
+    "@types/react": "^16.9.35",
+    "react": "^16.8.0",
+    "tslint": "^6.1.2",
+    "typescript": "^3.9.5"
+  },
+  "files": [
+    "dist/*.*"
+  ],
+  "homepage": "https://github.com/AustP/react-flux",
+  "keywords": [
+    "event",
+    "flux",
+    "management",
+    "react",
+    "state"
+  ],
+  "license": "MIT",
+  "main": "dist/flux.js",
+  "name": "react-flux",
+  "peerDependencies": {
+    "react": "^16.8.0"
+  },
+  "repository": "https://github.com/AustP/react-flux.git",
+  "scripts": {
+    "build": "yarn clean && tsc",
+    "clean": "rm -rf ./dist",
+    "lint": "tslint 'src/*.ts'",
+    "release": "yarn lint && yarn build && np",
+    "start": "tsc --watch",
+    "test": "echo \"Error: no test specified\""
+  },
+  "typings": "dist/flux.d.ts",
+  "version": "0.10.0"
 }
