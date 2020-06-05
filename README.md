@@ -126,7 +126,8 @@ Adds a store to the flux system.
 
 ### flux.dispatch(event: string, [...otherArguments])
 
-Dispatches the specified event with any additional arguments supplied.  
+Dispatches the specified event with any additional arguments supplied.
+
 *event*: The event to dispatch.  
 *...otherArguments*: These arguments will be passed to the side-effect runners.
 
@@ -153,7 +154,8 @@ Selects the status of the given event and additionally registers for updates fro
 
 ### flux.useStore(storeName: string, initialState: object, listeners: object)
 
-Shortcut method for setting up a store within a component. Returns an object with keys that match the initial state that reflect the values in the store.  
+Shortcut method for setting up a store within a component. Returns an object with keys that match the initial state that reflect the values in the store.
+
 *storeName*: The name of the store.  
 *initialState*: The initial state of the store.  
 *listeners*: An object with keys as the un-namespaced events and the values as the side-effect runners.  
@@ -169,6 +171,20 @@ const { count } = flux.useStore(
 );
 
 // flux.dispatch('CountingStore/increment');
+```
+
+### flux[storeName]
+
+If you need to access a store, you can access it directly off of the flux object by supplying the store's name.
+
+```(js)
+flux.addStore('someStore', {
+  someValue: 117
+});
+
+// later
+flux.someStore.selectState('someValue');
+flux['someStore'].selectState('someValue');
 ```
 
 ## Store API
@@ -190,13 +206,15 @@ Registers the store to listen for the specified event. When the event gets dispa
 
 ### store.selectState(property: string, [...otherArguments])
 
-Selects the given property from the state. Will go through a selector if it's defined, otherwise, it will just access the state.  
+Selects the given property from the state. Will go through a selector if it's defined, otherwise, it will just access the state.
+
 *property*: The property to access in the state.  
 *...otherArguments*: Any other arguments passed to this function will get passed to the selector function in the same order.
 
 ### store.useState(property: string, [...otherArguments])
 
-Selects the given property from the state and additionally registers for state updates. Will go through a selector if it's defined, otherwise, it will just access the state.  
+Selects the given property from the state and additionally registers for state updates. Will go through a selector if it's defined, otherwise, it will just access the state.
+
 *property*: The property to access in the state.  
 *...otherArguments*: Any other arguments passed to this function will get passed to the selector function in the same order.  
 **NOTE: Must be called from within a React component or custom hook.**

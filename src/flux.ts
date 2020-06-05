@@ -386,5 +386,7 @@ export default Object.create(stores, {
   useStatus: typeof useStatus;
   useStore: typeof useStore;
 } & {
+  // technically the type should be Store | undefined but we set it only to
+  // Store because we only care about the property if it is a Store anyways
   [namespace: string]: Store;
 };
