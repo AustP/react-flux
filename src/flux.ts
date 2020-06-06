@@ -67,7 +67,7 @@ const dispatchError = (
   ...payload: unknown[]
 ): number =>
   // wrap in a timeout so the error will be logged after the current event
-  setTimeout(
+  window.setTimeout(
     () => dispatchWhenAllowed(null, 'flux/error', event, err, ...payload),
     0,
   );

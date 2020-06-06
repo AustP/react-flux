@@ -123,7 +123,7 @@ export default class EventLogger {
     this.resolved = false;
     this.warningTimeout =
       parentLogger === null
-        ? setTimeout(() => {
+        ? window.setTimeout(() => {
             // tslint:disable-next-line no-console
             console.warn(
               `The event '${event}' was dispatched, but it's taking a while ` +
