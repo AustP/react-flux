@@ -1,4 +1,4 @@
-import { UnknownObject } from './global';
+import { UnknownObject } from './stateManager';
 
 type Entry = {
   args: unknown[];

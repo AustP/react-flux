@@ -6,8 +6,8 @@ type Subscription = (value: unknown) => void;
 type UnknownObject = { [key: string]: unknown };
 type UnsubscribeCallback = () => void;
 
-// the global state
-const global: UnknownObject = {};
+// the state manager
+const stateManager: UnknownObject = {};
 
 // subscription management variables
 let subscriptionKey: number = 0;
@@ -36,9 +36,9 @@ const init = (state: UnknownObject): void => {
 };
 
 /**
- * Selects the specified property from the global state
+ * Selects the specified property from the state manager
  */
-const selectState = (property: string): unknown => global[property];
+const selectState = (property: string): unknown => stateManager[property];
 
 /**
  * Sets the property to the specified value
@@ -46,8 +46,8 @@ const selectState = (property: string): unknown => global[property];
  * Returns whether or not the state was changed
  */
 const setState = (property: string, value: unknown): boolean => {
-  if (areValuesDifferent(global[property], value)) {
-    global[property] = value;
+  if (areValuesDifferent(stateManager[property], value)) {
+    stateManager[property] = value;
 
     for (const key in subscriptions[property]) {
       if (subscriptions[property].hasOwnProperty(key)) {
@@ -81,12 +81,12 @@ const subscribe = (
 };
 
 /**
- * Gets the specified property from the global state
+ * Gets the specified property from the state manager
  * Subscribes for any changes made via set
  */
 const useState = (property: string): [unknown, SetValueCallback] => {
-  const globalValue = selectState(property);
-  const [reactValue, setReactValue] = useReactState(globalValue);
+  const stateValue = selectState(property);
+  const [reactValue, setReactValue] = useReactState(stateValue);
 
   // wrap our subscription in useEffect so
   // we can unsubscribe when the component unmounts

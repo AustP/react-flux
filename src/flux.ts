@@ -1,7 +1,7 @@
 import { fromJS, is, Map } from 'immutable';
 import { useEffect, useRef } from 'react';
 
-import global, { UnknownObject } from './global';
+import stateManager, { UnknownObject } from './stateManager';
 import EventLogger from './EventLogger';
 import Store, {
   DispatchCallback,
@@ -248,7 +248,7 @@ const getEventNamespace = (event: string): string => {
 };
 
 /**
- * Gets the event status from the global state
+ * Gets the event status from the state manager
  */
 const getEventStatus = (
   getStateFn: 'selectState' | 'useState',
@@ -258,9 +258,9 @@ const getEventStatus = (
 
   let state: State | undefined;
   if (getStateFn === 'selectState') {
-    state = global.selectState(event) as State;
+    state = stateManager.selectState(event) as State;
   } else if (getStateFn === 'useState') {
-    state = global.useState(event)[0] as State;
+    state = stateManager.useState(event)[0] as State;
   }
 
   const statusObject: StatusObject = {
@@ -286,14 +286,14 @@ const selectStatus = (event: string): StatusObject =>
   getEventStatus('selectState', event);
 
 /**
- * Sets the event status in the global state
+ * Sets the event status in the state manager
  */
 const setEventStatus = (event: string, property: string, value: any): void => {
   assertEventFormat(event);
 
-  global.setState(
+  stateManager.setState(
     event,
-    ((global.selectState(event) as State | undefined) || Map()).set(
+    ((stateManager.selectState(event) as State | undefined) || Map()).set(
       property,
       value,
     ),

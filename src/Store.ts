@@ -1,6 +1,6 @@
 import { Map } from 'immutable';
 
-import global, { UnknownObject } from './global';
+import stateManager, { UnknownObject } from './stateManager';
 
 type AccessedState = State | unknown;
 type DispatchCallback = (event: string, ...payload: unknown[]) => Promise<void>;
@@ -52,22 +52,22 @@ const getState = (
   property?: string,
   ...args: unknown[]
 ): AccessedState => {
-  let globalState: State | undefined;
+  let state: State | undefined;
   if (getStateFn === 'selectState') {
-    globalState = global.selectState(namespace) as State;
+    state = stateManager.selectState(namespace) as State;
   } else if (getStateFn === 'useState') {
-    globalState = global.useState(namespace)[0] as State;
+    state = stateManager.useState(namespace)[0] as State;
   }
 
   if (property && selectors[property]) {
-    return selectors[property](globalState as State, ...args);
+    return selectors[property](state as State, ...args);
   } else {
     // if no property is set, just return the state
     if (property === undefined) {
-      return globalState;
+      return state;
     }
 
-    return (globalState as State).get(property, undefined);
+    return (state as State).get(property, undefined);
   }
 };
 
@@ -91,7 +91,7 @@ export default class Store {
    */
   constructor(namespace: string, initialState: UnknownObject) {
     // set the initial state for the store
-    global.setState(namespace, Map(initialState));
+    stateManager.setState(namespace, Map(initialState));
 
     this.namespace = namespace;
 
@@ -112,10 +112,14 @@ export default class Store {
    * Uses the given reducer to reduce the state
    */
   reduce(reducer: Reducer): [boolean, State, State] {
-    const oldState = global.selectState(this.namespace) as State;
+    const oldState = stateManager.selectState(this.namespace) as State;
     const newState = reducer(oldState);
 
-    return [global.setState(this.namespace, newState), oldState, newState];
+    return [
+      stateManager.setState(this.namespace, newState),
+      oldState,
+      newState,
+    ];
   }
 
   /**
