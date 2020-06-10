@@ -2,6 +2,7 @@
   "compilerOptions": {
     "declaration": true,
     "esModuleInterop": true,
+    "jsx": "react",
     "lib": ["dom", "es2017"],
     "module": "commonjs",
     "moduleResolution": "node",
@@ -13,6 +14,6 @@
     "strictNullChecks": true,
     "target": "es6"
   },
-  "exclude": ["tests/*.ts"],
-  "include": ["src/*.ts", "tests/*.ts"]
+  "exclude": ["tests/*.tsx?"],
+  "include": ["src/*.ts", "tests/*.tsx?"]
 }

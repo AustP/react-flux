@@ -8,10 +8,12 @@
   },
   "description": "A React flux implementation with a focus on side-effects and global state.",
   "devDependencies": {
+    "@testing-library/react": "^10.2.1",
     "@types/jest": "^25.2.3",
     "@types/react": "^16.9.35",
     "jest": "^26.0.1",
     "react": "^16.8.0",
+    "react-dom": "^16.8.0",
     "ts-jest": "^26.1.0",
     "tslint": "^6.1.2",
     "typescript": "^3.9.5"
