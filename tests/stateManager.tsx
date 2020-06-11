@@ -104,5 +104,60 @@ describe('stateManager', () => {
       expect(stateManager.selectState('villain')).toBe('Meridas Amaram');
       expect(didUpdate).toBe(true);
     });
+
+    test('uses deep equals to test equality', () => {
+      stateManager.setState('radiants', {
+        lightweavers: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Shallan Davar'],
+        },
+        windrunners: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Kaladin Stormblessed'],
+        },
+      });
+
+      let didUpdate = stateManager.setState('radiants', {
+        lightweavers: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Shallan Davar'],
+        },
+        windrunners: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Kaladin Stormblessed'],
+        },
+      });
+      expect(didUpdate).toBe(false);
+
+      didUpdate = stateManager.setState('radiants', {
+        bondsmiths: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Dalinar Kohlin'],
+        },
+        lightweavers: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Shallan Davar'],
+        },
+        windrunners: {
+          ideals: [
+            'Life before death, strength before weakness, journey before destination.',
+          ],
+          members: ['Kaladin Stormblessed'],
+        },
+      });
+      expect(didUpdate).toBe(true);
+    });
   });
 });
