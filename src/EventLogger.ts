@@ -116,7 +116,7 @@ export default class EventLogger {
     warningTimeout: number,
     ...payload: unknown[]
   ) {
-    this.args = [event, '', ...payload, '', ++order, '', `${getTimestamp()}`];
+    this.args = [event, '', ...payload, '', ++order, '', getTimestamp()];
     this.children = [];
     this.entries = [];
     this.parent = parentLogger;
@@ -132,7 +132,6 @@ export default class EventLogger {
           }, warningTimeout)
         : undefined;
 
-    // if another logger is unresolved, this logger is a child of it
     if (this.parent) {
       this.parent.addChild(this);
     }
@@ -148,10 +147,10 @@ export default class EventLogger {
   /**
    * Adds a log entry
    */
-  addEntry(fn: string, ...args: unknown[]) {
+  addEntry(fn: string, ...args: unknown[]): void {
     // we want to spice up the arguments for calls to groupCollapsed
     if (fn === 'groupCollapsed') {
-      args = [...args, '', ++order, '', `${getTimestamp()}`];
+      args = [...args, '', ++order, '', getTimestamp()];
     }
 
     this.entries.push({
@@ -251,21 +250,21 @@ export default class EventLogger {
   /**
    * Adds entries that will log the state with a message of Error Reducing
    */
-  logErrorRunningSideEffects(namespace: string, state?: object) {
+  logErrorRunningSideEffects(namespace: string, state?: object): void {
     this.logState(`Error running side-effects for ${namespace}`, state);
   }
 
   /**
    * Adds entries that will log the state with a message of No Changes
    */
-  logNoChanges(namespace: string, state?: object) {
+  logNoChanges(namespace: string, state?: object): void {
     this.logState(`No changes for ${namespace}`, state);
   }
 
   /**
    * Adds entries that will log the state with a message of No Reducers
    */
-  logNoReducers(namespace?: string, state?: object) {
+  logNoReducers(namespace?: string, state?: object): void {
     if (namespace) {
       this.logState(`No reducers for ${namespace}`, state);
     } else {

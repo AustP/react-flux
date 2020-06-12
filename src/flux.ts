@@ -268,7 +268,7 @@ const getEventStatus = (
       dispatching: false,
       error: null,
       payload: [],
-    } as StatusObject;
+    };
   } else {
     return state.toJS() as StatusObject;
   }
