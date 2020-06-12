@@ -283,8 +283,8 @@ export default class EventLogger {
   }
 
   /**
-   * Resolves this logger
-   * If all of the loggers in the tree are resolved, they will be logged
+   * Resolves this logger. If all of the loggers in the tree are resolved, they
+   * will be logged
    */
   resolve(): void {
     this.resolved = true;

@@ -2,10 +2,9 @@ import { Map } from 'immutable';
 
 import stateManager, { UnknownObject } from './stateManager';
 
-type AccessedState = State | unknown;
 type DispatchCallback = (event: string, ...payload: unknown[]) => Promise<void>;
 type Reducer = (state: State) => State;
-type Selector = (state: State, ...args: unknown[]) => unknown;
+type Selector<T = unknown> = (state: State, ...args: unknown[]) => T;
 type SideEffect = {
   promise: Promise<Reducer | void>;
   store: Store;
@@ -13,8 +12,8 @@ type SideEffect = {
 type SideEffectRunner = (
   dispatch: DispatchCallback,
   ...payload: unknown[]
-) => Promise<Reducer> | Promise<void> | Reducer | void;
-type State = Map<string, unknown>;
+) => Promise<Reducer | void> | Reducer | void;
+type State<T = unknown> = Map<string, T>;
 type UnregisterCallback = () => void;
 
 /**
@@ -43,7 +42,23 @@ const assertPropertyFormat = (property: string) => {
 /**
  * Gets the property value from the state
  */
-const getState = (
+function getState(
+  namespace: string,
+  selectors: {
+    [property: string]: Selector;
+  },
+  getStateFn: 'selectState' | 'useState',
+): State;
+function getState<T = unknown>(
+  namespace: string,
+  selectors: {
+    [property: string]: Selector;
+  },
+  getStateFn: 'selectState' | 'useState',
+  property: string,
+  ...args: unknown[]
+): T | undefined;
+function getState<T = unknown>(
   namespace: string,
   selectors: {
     [property: string]: Selector;
@@ -51,25 +66,25 @@ const getState = (
   getStateFn: 'selectState' | 'useState',
   property?: string,
   ...args: unknown[]
-): AccessedState => {
-  let state: State | undefined;
+): State | T | undefined {
+  let state: State;
   if (getStateFn === 'selectState') {
-    state = stateManager.selectState(namespace) as State;
+    state = stateManager.selectState<State>(namespace);
   } else if (getStateFn === 'useState') {
-    state = stateManager.useState(namespace)[0] as State;
+    state = stateManager.useState<State>(namespace)[0];
   }
 
   if (property && selectors[property]) {
-    return selectors[property](state as State, ...args);
+    return (selectors[property] as Selector<T>)(state!, ...args);
   } else {
     // if no property is set, just return the state
     if (property === undefined) {
-      return state;
+      return state!;
     }
 
-    return (state as State).get(property, undefined);
+    return (state! as State<T>).get<T | undefined>(property, undefined);
   }
-};
+}
 
 export default class Store {
   namespace: string;
@@ -85,9 +100,6 @@ export default class Store {
 
   /**
    * Initializes a new Store
-   *
-   * @param string namespace
-   * @param object initialState
    */
   constructor(namespace: string, initialState: UnknownObject) {
     // set the initial state for the store
@@ -123,8 +135,8 @@ export default class Store {
   }
 
   /**
-   * Registers the given side-effect runner for the specified event
-   * Returns a function that can be used to unregister
+   * Registers the given side-effect runner for the specified event. Returns a
+   * function that can be used to unregister
    */
   register(
     event: string,
@@ -145,17 +157,26 @@ export default class Store {
   }
 
   /**
-   * Accesses the state specified by the given property
-   * This method call does not register for updates so the value could be stale
+   * Accesses the state specified by the given property. This method call does
+   * not register for updates
    */
-  selectState(property?: string, ...args: unknown[]): AccessedState {
-    return getState(
-      this.namespace,
-      this.selectors,
-      'selectState',
-      property,
-      ...args,
-    );
+  selectState(): State;
+  selectState<T = unknown>(property: string, ...args: unknown[]): T | undefined;
+  selectState<T = unknown>(
+    property?: string,
+    ...args: unknown[]
+  ): State | T | undefined {
+    if (property === undefined) {
+      return getState(this.namespace, this.selectors, 'selectState');
+    } else {
+      return getState<T>(
+        this.namespace,
+        this.selectors,
+        'selectState',
+        property,
+        ...args,
+      );
+    }
   }
 
   /**
@@ -182,17 +203,26 @@ export default class Store {
   }
 
   /**
-   * Accesses the state specified by the given property
-   * This method call registers for updates so the value is always up-to-date
+   * Accesses the state specified by the given property. This method call
+   * registers for updates so the value is always up-to-date
    */
-  useState(property?: string, ...args: unknown[]): AccessedState {
-    return getState(
-      this.namespace,
-      this.selectors,
-      'useState',
-      property,
-      ...args,
-    );
+  useState(): State;
+  useState<T = unknown>(property: string, ...args: unknown[]): T | undefined;
+  useState<T = unknown>(
+    property?: string,
+    ...args: unknown[]
+  ): State | T | undefined {
+    if (property === undefined) {
+      return getState(this.namespace, this.selectors, 'useState');
+    } else {
+      return getState<T>(
+        this.namespace,
+        this.selectors,
+        'useState',
+        property,
+        ...args,
+      );
+    }
   }
 }
 

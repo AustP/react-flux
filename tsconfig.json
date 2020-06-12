@@ -8,12 +8,10 @@
     "moduleResolution": "node",
     "noImplicitAny": true,
     "outDir": "dist/",
-    "rootDir": "src/",
+    "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
     "strictNullChecks": true,
     "target": "es6"
-  },
-  "exclude": ["tests/*.tsx?"],
-  "include": ["src/*.ts", "tests/*.tsx?"]
+  }
 }

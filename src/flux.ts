@@ -221,8 +221,8 @@ const dispatchImmediately = (
 };
 
 /**
- * Dispatches the event unless one is currently dispatching,
- * in which case, it queues the dispatch to take place next
+ * Dispatches the event unless one is currently dispatching, in which case, it
+ * queues the dispatch to take place next
  */
 const dispatchWhenAllowed = async (
   parentLogger: EventLogger | null,
@@ -258,18 +258,20 @@ const getEventStatus = (
 
   let state: State | undefined;
   if (getStateFn === 'selectState') {
-    state = stateManager.selectState(event) as State;
+    state = stateManager.selectState<State | undefined>(event);
   } else if (getStateFn === 'useState') {
-    state = stateManager.useState(event)[0] as State;
+    state = stateManager.useState<State | undefined>(event)[0];
   }
 
-  const statusObject: StatusObject = {
-    dispatching: false,
-    error: null,
-    payload: [],
-  };
-
-  return (state && (state.toJS() as StatusObject)) || statusObject;
+  if (!state) {
+    return {
+      dispatching: false,
+      error: null,
+      payload: [],
+    } as StatusObject;
+  } else {
+    return state.toJS() as StatusObject;
+  }
 };
 
 /**
@@ -279,8 +281,8 @@ const isStoreAdded = (namespace: string): boolean =>
   stores[namespace] !== undefined;
 
 /**
- * Accesses the status of the event
- * This method call does not register for updates so the value could be stale
+ * Accesses the status of the event. This method call does not register for
+ * updates so the value could be stale
  */
 const selectStatus = (event: string): StatusObject =>
   getEventStatus('selectState', event);
@@ -309,8 +311,8 @@ const setOption = (
 ): boolean | number => ((options[option] as boolean | number) = value);
 
 /**
- * Accesses the status of the event
- * This method call registers for updates so the value is always up-to-date
+ * Accesses the status of the event. This method call registers for updates so
+ * the value is always up-to-date
  */
 const useStatus = (event: string): StatusObject =>
   getEventStatus('useState', event);
@@ -318,11 +320,11 @@ const useStatus = (event: string): StatusObject =>
 /**
  * Setups up a store from within a component
  */
-const useStore = (
+const useStore = <T extends UnknownObject>(
   namespace: string,
   initialState: UnknownObject,
   sideEffectRunners: SideEffectRunner[],
-): UnknownObject => {
+): T => {
   // only call addStore if the store hasn't been previously added
   // this makes fast refresh work with useStore
   if (!isStoreAdded(namespace)) {
@@ -365,7 +367,8 @@ const useStore = (
     }
   }
 
-  return result;
+  // if they specify a return type, we will cast it to that
+  return result as T;
 };
 
 const getPropertyDescriptor = (value: any): any => ({ value });
@@ -386,7 +389,5 @@ export default Object.create(stores, {
   useStatus: typeof useStatus;
   useStore: typeof useStore;
 } & {
-  // technically the type should be Store | undefined but we set it only to
-  // Store because we only care about the property if it is a Store anyways
-  [namespace: string]: Store;
+  [namespace: string]: Store | undefined;
 };

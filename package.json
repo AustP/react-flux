@@ -19,7 +19,7 @@
     "typescript": "^3.9.5"
   },
   "files": [
-    "dist/*.*"
+    "dist/src/*.*"
   ],
   "homepage": "https://github.com/AustP/react-flux",
   "keywords": [
@@ -37,12 +37,12 @@
   },
   "repository": "https://github.com/AustP/react-flux.git",
   "scripts": {
-    "build": "yarn clean && tsc",
+    "build": "yarn clean && tsc --listEmittedFiles",
     "clean": "rm -rf ./dist",
     "lint": "tslint 'src/*.ts'",
     "release": "yarn lint && yarn build && np",
     "start": "tsc --watch",
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "typings": "dist/flux.d.ts",
   "version": "0.10.0"

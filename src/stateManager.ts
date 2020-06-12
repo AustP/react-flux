@@ -1,8 +1,7 @@
 import { fromJS, is } from 'immutable';
 import { useCallback, useEffect, useState as useReactState } from 'react';
 
-type SetValueCallback = (value: unknown) => boolean;
-type Subscription = (value: unknown) => void;
+type Subscription = (value: any) => void;
 type UnknownObject = { [key: string]: unknown };
 type UnsubscribeCallback = () => void;
 
@@ -18,8 +17,8 @@ const subscriptions: {
 } = {};
 
 /**
- * Checks if the values are different
- * Uses immutable so objects with the same properties are considered the same
+ * Checks if the values are different. Uses immutable so objects with the same
+ * properties are considered the same
  */
 const areValuesDifferent = (first: unknown, second: unknown): boolean =>
   !is(fromJS(first), fromJS(second));
@@ -38,14 +37,14 @@ const init = (state: UnknownObject): void => {
 /**
  * Selects the specified property from the state manager
  */
-const selectState = (property: string): unknown => stateManager[property];
+const selectState = <T = unknown>(property: string): T =>
+  stateManager[property] as T;
 
 /**
- * Sets the property to the specified value
- * Informs subscribers that the property was changed
- * Returns whether or not the state was changed
+ * Sets the property to the specified value. Informs subscribers that the
+ * property was changed. Returns whether or not the state was changed
  */
-const setState = (property: string, value: unknown): boolean => {
+const setState = <T>(property: string, value: T): boolean => {
   if (areValuesDifferent(stateManager[property], value)) {
     stateManager[property] = value;
 
@@ -81,23 +80,25 @@ const subscribe = (
 };
 
 /**
- * Gets the specified property from the state manager
- * Subscribes for any changes made via set
+ * Gets the specified property from the state manager. Subscribes for any
+ * changes made via set
  */
-const useState = (property: string): [unknown, SetValueCallback] => {
-  const stateValue = selectState(property);
-  const [reactValue, setReactValue] = useReactState(stateValue);
+const useState = <T = unknown>(
+  property: string,
+): [T, (value: T) => boolean] => {
+  const stateValue = selectState<T>(property);
+  const [reactValue, setReactValue] = useReactState<T>(stateValue);
 
   // wrap our subscription in useEffect so
   // we can unsubscribe when the component unmounts
-  useEffect(() => subscribe(property, (value) => setReactValue(value)), [
+  useEffect(() => subscribe(property, (value: T) => setReactValue(value)), [
     property,
     setReactValue,
   ]);
 
   return [
     reactValue,
-    useCallback((value: unknown) => setState(property, value), [property]),
+    useCallback((value: T) => setState(property, value), [property]),
   ];
 };
 

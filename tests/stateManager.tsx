@@ -23,8 +23,8 @@ describe('stateManager', () => {
 
     test("from inside a component when the value doesn't need to stay up-to-date", () => {
       function StaticComponent() {
-        const hero = stateManager.selectState('hero');
-        return <span>{hero as string}</span>;
+        const hero = stateManager.selectState<string>('hero');
+        return <span>{hero}</span>;
       }
 
       render(<StaticComponent />);
@@ -37,8 +37,8 @@ describe('stateManager', () => {
 
     test('from inside a component when the value needs to stay up-to-date', () => {
       function DynamicComponent() {
-        const hero = stateManager.useState('hero')[0];
-        return <span>{hero as string}</span>;
+        const hero = stateManager.useState<string>('hero')[0];
+        return <span>{hero}</span>;
       }
 
       render(<DynamicComponent />);
@@ -62,13 +62,13 @@ describe('stateManager', () => {
 
     test('from inside a component', () => {
       function DynamicComponent() {
-        const [bridgeNumber, setBridgeNumber] = stateManager.useState(
+        const [bridgeNumber, setBridgeNumber] = stateManager.useState<number>(
           'bridgeNumber',
         );
 
         return (
-          <span onClick={() => setBridgeNumber((bridgeNumber as number) + 1)}>
-            Bridge {bridgeNumber as number}
+          <span onClick={() => setBridgeNumber(bridgeNumber + 1)}>
+            Bridge {bridgeNumber}
           </span>
         );
       }

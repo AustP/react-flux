@@ -12,5 +12,5 @@ module.exports = {
   testEnvironment: 'jsdom',
 
   // The glob patterns Jest uses to detect test files.
-  testMatch: ['**/tests/*.*'],
+  testMatch: ['<rootDir>/tests/*.*'],
 };
