@@ -31,7 +31,7 @@ describe('stateManager', () => {
       expect(screen.getByText('Kaladin Stormblessed')).toBeDefined();
 
       act(() => void stateManager.setState('hero', 'Dalinar Kohlin'));
-      expect(screen.queryByText('Dalinar Kholin')).toBeNull();
+      expect(screen.queryByText('Dalinar Kohlin')).toBeNull();
       expect(screen.getByText('Kaladin Stormblessed')).toBeDefined();
     });
 
