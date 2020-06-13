@@ -1,12 +1,12 @@
-import { fromJS, is } from 'immutable';
+import areValuesEqual from 'fast-deep-equal';
 import { useCallback, useEffect, useState as useReactState } from 'react';
 
+type State = { readonly [key: string]: unknown };
 type Subscription = (value: any) => void;
-type UnknownObject = { [key: string]: unknown };
 type UnsubscribeCallback = () => void;
 
 // the state manager
-const stateManager: UnknownObject = {};
+let stateManager: State = Object.freeze({});
 
 // subscription management variables
 let subscriptionKey: number = 0;
@@ -17,16 +17,9 @@ const subscriptions: {
 } = {};
 
 /**
- * Checks if the values are different. Uses immutable so objects with the same
- * properties are considered the same
- */
-const areValuesDifferent = (first: unknown, second: unknown): boolean =>
-  !is(fromJS(first), fromJS(second));
-
-/**
  * Helper method to set multiple values at once (usually on init)
  */
-const init = (state: UnknownObject): void => {
+const init = (state: State): void => {
   for (const key in state) {
     if (state.hasOwnProperty(key)) {
       setState(key, state[key]);
@@ -45,19 +38,18 @@ const selectState = <T = unknown>(property: string): T =>
  * property was changed. Returns whether or not the state was changed
  */
 const setState = <T>(property: string, value: T): boolean => {
-  if (areValuesDifferent(stateManager[property], value)) {
-    stateManager[property] = value;
-
-    for (const key in subscriptions[property]) {
-      if (subscriptions[property].hasOwnProperty(key)) {
-        subscriptions[property][key](value);
-      }
-    }
-
-    return true;
+  if (areValuesEqual(stateManager[property], value)) {
+    return false;
   }
 
-  return false;
+  stateManager = Object.freeze({ ...stateManager, [property]: value });
+  for (const key in subscriptions[property]) {
+    if (subscriptions[property].hasOwnProperty(key)) {
+      subscriptions[property][key](value);
+    }
+  }
+
+  return true;
 };
 
 /**
@@ -103,4 +95,4 @@ const useState = <T = unknown>(
 };
 
 export default { init, selectState, setState, useState };
-export { UnknownObject };
+export { State };

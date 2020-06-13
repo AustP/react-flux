@@ -32,7 +32,7 @@ const store = flux.addStore('auth', {
 });
 
 // we can use selectors to override properties for convenience
-store.addSelector('token', (state) => jwtDecode(state.get('token'));
+store.addSelector('token', (state) => jwtDecode(state.token));
 
 // we can also add properties using selectors
 store.addSelector('username', (state) => store.selectState('token').username);
@@ -42,7 +42,7 @@ store.register('auth/login', async (dispatch, username, password) => {
   const token = await makeALoginRequest(username, password);
 
   // now that we've authenticated, we will return a reducer function
-  return (state) => state.set('token', token);
+  return (state) => ({ token });
 });
 ```
 
@@ -50,8 +50,9 @@ The API is explained in more detail below, but for now focus on the `store.regis
 
 Notice that our side-effect runner is indeed executing a side-effect, i.e. it is making a request to our backend server to see if the username/password are correct. If it is correct, a JWT token will be returned which we then want to save in our store so we can use it later. We save it by returning a reducer function that takes the current state of the store and returns the new state with the new token.
 
-*NOTE: Side-effect runners are not required to return reducer functions.*  
-*NOTE: react-flux uses Immutable.js while reducing and selecting for easier state management.*
+react-flux freezes the state whenever it is updated so you are required to return a new state object whenever you are reducing the state. It is not a deep freeze so be careful not to mutate any objects that you might include in the state.
+
+*NOTE: Side-effect runners are not required to return reducer functions.*
 
 ### Accessing the State
 
@@ -166,7 +167,7 @@ const { count } = flux.useStore(
   'CountingStore',
   { count: 0 },
   {
-    increment: () => (state) => state.set('count', state.get('count') + 1)
+    increment: () => (state) => ({ count: state.count + 1})
   }
 );
 
@@ -194,14 +195,14 @@ flux['someStore'].selectState('someValue');
 Adds a selector that will be called whenever trying to access the specified property.
 
 *property*: The property to select for. Note: You can override existing properties.  
-*selector(state: Map, [...otherArguments])*: The function that will be called when accessing the property. The first argument passed to the selector will be the current state of the store. Any other arguments passed to the state selector function will be passed to the selector in the same order.
+*selector(state: object, [...otherArguments])*: The function that will be called when accessing the property. The first argument passed to the selector will be the current state of the store. Any other arguments passed to the state selector function will be passed to the selector in the same order.
 
 ### store.register(event: string, sideEffectRunner: function)
 
 Registers the store to listen for the specified event. When the event gets dispatched, the side-effect runner will execute.
 
 *event*: The event to register for.  
-*sideEffectRunner(dispatch: function, [...otherArguments])*: The function that executes when the specified event is dispatched. The first parameter to the side-effect runner is a dispatch function. Any other arguments passed to the dispatcher for the specified event will be passed to the side-effect runner in the same order. If the store needs to be reduced after running the side-effects, the side-effect runner should return a *reducer(state: Map)* function. The reducer function takes the state as it's one and only argument and must return the new state.  
+*sideEffectRunner(dispatch: function, [...otherArguments])*: The function that executes when the specified event is dispatched. The first parameter to the side-effect runner is a dispatch function. Any other arguments passed to the dispatcher for the specified event will be passed to the side-effect runner in the same order. If the store needs to be reduced after running the side-effects, the side-effect runner should return a *reducer(state: object)* function. The reducer function takes the state as it's one and only argument and must return the new state.  
 **NOTE: If the side-effect runner or reducer needs to dispatch any events, they should use the given dispatch function rather than flux.dispatch so the logging system works correctly.**
 
 ### store.selectState(property: string, [...otherArguments])

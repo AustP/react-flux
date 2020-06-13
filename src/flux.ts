@@ -1,14 +1,13 @@
-import { fromJS, is, Map } from 'immutable';
+import areValuesEqual from 'fast-deep-equal';
 import { useEffect, useRef } from 'react';
 
-import stateManager, { UnknownObject } from './stateManager';
+import stateManager, { State } from './stateManager';
 import EventLogger from './EventLogger';
 import Store, {
   DispatchCallback,
   Reducer,
   SideEffect,
   SideEffectRunner,
-  State,
   UnregisterCallback,
 } from './Store';
 
@@ -38,7 +37,7 @@ const stores: {
 /**
  * Adds a store to the system
  */
-const addStore = (namespace: string, initialState: UnknownObject): Store => {
+const addStore = (namespace: string, initialState: State): Store => {
   if (namespace.indexOf('.') !== -1 || namespace.indexOf('/') !== -1) {
     throw new Error(`Store names cannot contain a period or forward-slash.`);
   }
@@ -159,29 +158,23 @@ const dispatchImmediately = (
 
           const [updated, oldState, newState] = store.reduce(reducer);
           if (logger && updated) {
-            logger.logDiff(store.namespace, oldState.toJS(), newState.toJS());
+            logger.logDiff(store.namespace, oldState, newState);
           } else if (logger) {
-            logger.logNoChanges(store.namespace, oldState.toJS());
+            logger.logNoChanges(store.namespace, oldState);
           }
         }
 
         if (logger && reducerCount === 0) {
           const store = stores[getEventNamespace(event)];
           if (store) {
-            logger.logNoReducers(
-              store.namespace,
-              (store.selectState() as State).toJS(),
-            );
+            logger.logNoReducers(store.namespace, store.selectState());
           } else {
             logger.logNoReducers(undefined, undefined);
           }
         }
       } catch (err) {
         if (logger && lastStore) {
-          logger.logErrorReducing(
-            lastStore.namespace,
-            (lastStore.selectState() as State).toJS(),
-          );
+          logger.logErrorReducing(lastStore.namespace, lastStore.selectState());
         }
 
         // there was an error, dispatch an error event about it
@@ -197,7 +190,7 @@ const dispatchImmediately = (
       if (logger && lastStore) {
         logger.logErrorRunningSideEffects(
           lastStore.namespace,
-          (lastStore.selectState() as State).toJS(),
+          lastStore.selectState(),
         );
       }
 
@@ -270,7 +263,7 @@ const getEventStatus = (
       payload: [],
     };
   } else {
-    return state.toJS() as StatusObject;
+    return state as StatusObject;
   }
 };
 
@@ -293,13 +286,12 @@ const selectStatus = (event: string): StatusObject =>
 const setEventStatus = (event: string, property: string, value: any): void => {
   assertEventFormat(event);
 
-  stateManager.setState(
-    event,
-    ((stateManager.selectState(event) as State | undefined) || Map()).set(
-      property,
-      value,
-    ),
-  );
+  let oldState = stateManager.selectState<State | undefined>(event);
+  if (oldState === undefined) {
+    oldState = {};
+  }
+
+  stateManager.setState(event, { ...oldState, [property]: value });
 };
 
 /**
@@ -320,9 +312,9 @@ const useStatus = (event: string): StatusObject =>
 /**
  * Setups up a store from within a component
  */
-const useStore = <T extends UnknownObject>(
+const useStore = <T extends State>(
   namespace: string,
-  initialState: UnknownObject,
+  initialState: State,
   sideEffectRunners: SideEffectRunner[],
 ): T => {
   // only call addStore if the store hasn't been previously added
@@ -335,7 +327,7 @@ const useStore = <T extends UnknownObject>(
   // to prevent re-rendering every time the state changes
   // if the sideEffectRunners change though, it will re-render
   const ref = useRef(sideEffectRunners);
-  if (!is(fromJS(sideEffectRunners), fromJS(ref.current))) {
+  if (!areValuesEqual(sideEffectRunners, ref.current)) {
     ref.current = sideEffectRunners;
   }
 
@@ -359,16 +351,14 @@ const useStore = <T extends UnknownObject>(
   }, [namespace, ref]);
 
   // use useState to register this hook to update on state changes
-  const result: UnknownObject = {};
-  const state = stores[namespace].useState() as State;
-  for (const property in initialState) {
-    if (initialState.hasOwnProperty(property)) {
-      result[property] = state.get(property, undefined);
-    }
-  }
+  const state = stores[namespace].useState();
+  const result = Object.keys(initialState).reduce(
+    (result, key) => ({ ...result, [key]: state[key] }),
+    {},
+  );
 
   // if they specify a return type, we will cast it to that
-  return result as T;
+  return Object.freeze(result) as T;
 };
 
 const getPropertyDescriptor = (value: any): any => ({ value });
@@ -389,5 +379,5 @@ export default Object.create(stores, {
   useStatus: typeof useStatus;
   useStore: typeof useStore;
 } & {
-  [namespace: string]: Store | undefined;
+  readonly [namespace: string]: Store | undefined;
 };

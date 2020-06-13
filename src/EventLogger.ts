@@ -1,9 +1,8 @@
-import { UnknownObject } from './stateManager';
-
 type Entry = {
   args: unknown[];
   fn: string;
 };
+type UnknownObject = { [key: string]: unknown };
 
 // keep track of the order that the logs come in
 let order = 0;

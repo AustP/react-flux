@@ -1,6 +1,4 @@
-import { Map } from 'immutable';
-
-import stateManager, { UnknownObject } from './stateManager';
+import stateManager, { State } from './stateManager';
 
 type DispatchCallback = (event: string, ...payload: unknown[]) => Promise<void>;
 type Reducer = (state: State) => State;
@@ -13,7 +11,6 @@ type SideEffectRunner = (
   dispatch: DispatchCallback,
   ...payload: unknown[]
 ) => Promise<Reducer | void> | Reducer | void;
-type State<T = unknown> = Map<string, T>;
 type UnregisterCallback = () => void;
 
 /**
@@ -82,7 +79,7 @@ function getState<T = unknown>(
       return state!;
     }
 
-    return (state! as State<T>).get<T | undefined>(property, undefined);
+    return state![property] as T | undefined;
   }
 }
 
@@ -101,9 +98,9 @@ export default class Store {
   /**
    * Initializes a new Store
    */
-  constructor(namespace: string, initialState: UnknownObject) {
+  constructor(namespace: string, initialState: State) {
     // set the initial state for the store
-    stateManager.setState(namespace, Map(initialState));
+    stateManager.setState(namespace, initialState);
 
     this.namespace = namespace;
 
