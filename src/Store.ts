@@ -228,6 +228,5 @@ export {
   Reducer,
   SideEffect,
   SideEffectRunner,
-  State,
   UnregisterCallback,
 };
