@@ -1,8 +1,8 @@
 import stateManager, { State } from './stateManager';
 
-type DispatchCallback = (event: string, ...payload: unknown[]) => Promise<void>;
+type DispatchCallback = (event: string, ...payload: any[]) => Promise<void>;
 type Reducer = (state: State) => State;
-type Selector<T = unknown> = (state: State, ...args: unknown[]) => T;
+type Selector<T = unknown> = (state: State, ...args: any[]) => T;
 type SideEffect = {
   promise: Promise<Reducer | void>;
   store: Store;

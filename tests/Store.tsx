@@ -131,6 +131,18 @@ describe('Store', () => {
         soldiers: 11700,
       });
     });
+
+    test('that have parameters', async () => {
+      const sideEffectRunner = jest.fn((dispatch, requester, receiver) => {
+        // attempt to make an alliance here
+      });
+      warcampStore.register('warcamp/attemptAlliance', sideEffectRunner);
+
+      await flux.dispatch('warcamp/attemptAlliance', 'Dalinar', 'Roion');
+      expect(sideEffectRunner.mock.calls.length).toBe(1);
+      expect(sideEffectRunner.mock.calls[0][1]).toBe('Dalinar');
+      expect(sideEffectRunner.mock.calls[0][2]).toBe('Roion');
+    });
   });
 
   describe('selectors', () => {
@@ -149,6 +161,26 @@ describe('Store', () => {
       expect(radiantsStore.selectState('lightweavers')).toBe(
         'Nothing to see here!',
       );
+    });
+
+    test('that have parameters', async () => {
+      const selector = jest.fn((state, orderName: string) => {
+        const order = state[orderName] as Order | undefined;
+        if (order === undefined) {
+          return 0;
+        }
+
+        return order.members.length;
+      });
+      radiantsStore.addSelector('memberCount', selector);
+
+      const memberCount = radiantsStore.selectState(
+        'memberCount',
+        'lightweavers',
+      );
+      expect(selector.mock.calls.length).toBe(1);
+      expect(selector.mock.calls[0][1]).toBe('lightweavers');
+      expect(memberCount).toBe(1);
     });
   });
 
