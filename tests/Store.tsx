@@ -1,8 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 
-import flux from '../src/flux';
-import Store from '../src/Store';
+import flux, { Store } from '../src/flux';
 
 type Order = {
   members: string[];

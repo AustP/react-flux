@@ -303,7 +303,7 @@ const setEventStatus = (event: string, property: string, value: any): void => {
 const setOption = (
   option: 'displayLogs' | 'longDispatchTimeout',
   value: boolean | number,
-): boolean | number => ((options[option] as boolean | number) = value);
+): void => void ((options[option] as boolean | number) = value);
 
 /**
  * Accesses the status of the event. This method call registers for updates so
@@ -366,6 +366,9 @@ const useStore = <T extends State>(
 
 const getPropertyDescriptor = (value: any): any => ({ value });
 export default Object.create(stores, {
+  [Symbol.iterator]: getPropertyDescriptor(() =>
+    Object.values(stores)[Symbol.iterator](),
+  ),
   addStore: getPropertyDescriptor(addStore),
   dispatch: getPropertyDescriptor((event: string, ...payload: any[]) =>
     dispatchWhenAllowed(null, event, ...payload),
@@ -375,12 +378,16 @@ export default Object.create(stores, {
   useStatus: getPropertyDescriptor(useStatus),
   useStore: getPropertyDescriptor(useStore),
 }) as {
-  addStore: typeof addStore;
-  dispatch: DispatchCallback;
-  selectStatus: typeof selectStatus;
-  setOption: typeof setOption;
-  useStatus: typeof useStatus;
-  useStore: typeof useStore;
+  readonly [Symbol.iterator]: () => Iterator<Store>;
+  readonly addStore: typeof addStore;
+  readonly dispatch: DispatchCallback;
+  readonly selectStatus: typeof selectStatus;
+  readonly setOption: typeof setOption;
+  readonly useStatus: typeof useStatus;
+  readonly useStore: typeof useStore;
 } & {
   readonly [namespace: string]: Store | undefined;
 };
+
+type StoreInterface = InstanceType<typeof Store>;
+export { StoreInterface as Store };

@@ -187,4 +187,24 @@ describe('flux', () => {
       expect(screen.getByText('127')).toBeDefined();
     });
   });
+
+  describe('accessing stores', () => {
+    test('directly', () => {
+      expect(flux.warcamp!.selectState('bridgeCrews')).toBe(25);
+    });
+
+    test('by iteration', () => {
+      for (const store of flux) {
+        expect(
+          store.namespace === 'diagram' || store.namespace === 'warcamp',
+        ).toBe(true);
+      }
+
+      for (const storeName in flux) {
+        if (flux.hasOwnProperty(storeName)) {
+          expect(storeName === 'diagram' || storeName === 'warcamp').toBe(true);
+        }
+      }
+    });
+  });
 });
