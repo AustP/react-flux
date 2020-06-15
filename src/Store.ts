@@ -9,7 +9,7 @@ type SideEffect = {
 };
 type SideEffectRunner = (
   dispatch: DispatchCallback,
-  ...payload: unknown[]
+  ...payload: any[]
 ) => Promise<Reducer | void> | Reducer | void;
 type UnregisterCallback = () => void;
 

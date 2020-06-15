@@ -15,6 +15,9 @@ type ResolvedSideEffect = {
   reducer: Reducer | void;
   store: Store;
 };
+type SideEffectRunnerObject = {
+  [event: string]: SideEffectRunner;
+};
 type StatusObject = {
   dispatching: boolean;
   error: Error | null;
@@ -315,7 +318,7 @@ const useStatus = (event: string): StatusObject =>
 const useStore = <T extends State>(
   namespace: string,
   initialState: State,
-  sideEffectRunners: SideEffectRunner[],
+  sideEffectRunners: SideEffectRunnerObject,
 ): T => {
   // only call addStore if the store hasn't been previously added
   // this makes fast refresh work with useStore
@@ -364,7 +367,7 @@ const useStore = <T extends State>(
 const getPropertyDescriptor = (value: any): any => ({ value });
 export default Object.create(stores, {
   addStore: getPropertyDescriptor(addStore),
-  dispatch: getPropertyDescriptor((event: string, ...payload: unknown[]) =>
+  dispatch: getPropertyDescriptor((event: string, ...payload: any[]) =>
     dispatchWhenAllowed(null, event, ...payload),
   ),
   selectStatus: getPropertyDescriptor(selectStatus),
