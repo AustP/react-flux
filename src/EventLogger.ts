@@ -159,25 +159,6 @@ export default class EventLogger {
   }
 
   /**
-   * Checks to see if the given subject is in the logger tree
-   */
-  contains(subject: EventLogger): boolean {
-    if (subject === null) {
-      return false;
-    }
-
-    for (const child of this.children) {
-      if (child === subject) {
-        return true;
-      } else {
-        return child.contains(subject);
-      }
-    }
-
-    return false;
-  }
-
-  /**
    * Gets the top-most logger
    */
   getTop(): EventLogger {
