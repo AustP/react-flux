@@ -112,7 +112,9 @@ describe('flux', () => {
 
         flux.dispatch('warcamp/surrenderImmediately');
         status = flux.selectStatus('warcamp/surrenderImmediately');
-        expect(status.error!.message).toBe('We will never surrender!');
+        expect((status.error as Error).message).toBe(
+          'We will never surrender!',
+        );
       });
     });
 
@@ -127,7 +129,9 @@ describe('flux', () => {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
         status = flux.selectStatus('warcamp/surrender');
-        expect(status.error!.message).toBe('We will never surrender!');
+        expect((status.error as Error).message).toBe(
+          'We will never surrender!',
+        );
       });
     });
 

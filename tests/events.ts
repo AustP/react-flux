@@ -104,9 +104,9 @@ describe('events', () => {
       expect(flux.selectStatus('flux/error').payload[0]).toEqual(
         'warcamp/surrenderImmediately',
       );
-      expect(
-        (flux.selectStatus('flux/error').payload[1] as Error).message,
-      ).toEqual('We will never surrender!');
+      expect((flux.selectStatus('flux/error').error as Error).message).toEqual(
+        'We will never surrender!',
+      );
     });
 
     test('it handles errors during reduction', async () => {
@@ -115,9 +115,9 @@ describe('events', () => {
       expect(flux.selectStatus('flux/error').payload[0]).toEqual(
         'warcamp/surrender',
       );
-      expect(
-        (flux.selectStatus('flux/error').payload[1] as Error).message,
-      ).toEqual('We will never surrender!');
+      expect((flux.selectStatus('flux/error').error as Error).message).toEqual(
+        'We will never surrender!',
+      );
     });
   });
 

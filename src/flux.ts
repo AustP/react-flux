@@ -20,7 +20,7 @@ type SideEffectRunnerObject<T extends State = State> = {
 };
 type StatusObject = {
   dispatching: boolean;
-  error: Error | null;
+  error: unknown;
   payload: unknown[];
 };
 
@@ -75,6 +75,7 @@ const dispatchError = (
     // wrap in a timeout so the error will be logged after the current event
     window.setTimeout(async () => {
       await dispatchWhenAllowed(null, 'flux/error', event, err, ...payload);
+      setEventStatus('flux/error', 'error', err);
       resolve();
     }, 0);
   });
