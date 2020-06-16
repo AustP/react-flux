@@ -1,24 +1,21 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 
 import flux from '../src/flux';
-import Store from '../src/Store';
 
 const TIMEOUT_PAY_SOLDIERS = 200;
 const TIMEOUT_RECRUIT_SOLDIERS = 200;
-
-let warcampStore: Store;
 beforeAll(() => {
   flux.setOption('displayLogs', false);
 
-  warcampStore = flux.addStore('warcamp', {
+  const warcampStore = flux.addStore('warcamp', {
     bridgeCrews: 24,
     soldiers: 11700,
   });
 
   warcampStore.register('warcamp/addBridgeCrew', () => (state) => ({
     ...state,
-    bridgeCrews: (state.bridgeCrews as number) + 1,
+    bridgeCrews: state.bridgeCrews + 1,
   }));
 
   warcampStore.register(
@@ -35,7 +32,7 @@ beforeAll(() => {
     );
     return (state) => ({
       ...state,
-      soldiers: (state.soldiers as number) + 100,
+      soldiers: state.soldiers + 100,
     });
   });
 
@@ -171,7 +168,7 @@ describe('flux', () => {
           {
             addFollowers: (dispatch, amount: number = 1) => (state) => ({
               ...state,
-              followers: (state.followers as number) + amount,
+              followers: state.followers + amount,
             }),
           },
         );

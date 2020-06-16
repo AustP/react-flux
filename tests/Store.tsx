@@ -56,10 +56,13 @@ describe('Store', () => {
         members: ['Shallan Davar'],
       });
 
-      warcampStore.register('warcamp/addBridgeCrew', () => (state) => ({
-        ...state,
-        bridgeCrews: (state.bridgeCrews as number) + 1,
-      }));
+      warcampStore.register<{ bridgeCrews: number }>(
+        'warcamp/addBridgeCrew',
+        () => (state) => ({
+          ...state,
+          bridgeCrews: state.bridgeCrews + 1,
+        }),
+      );
 
       await flux.dispatch('warcamp/addBridgeCrew');
       expect(warcampStore.selectState('bridgeCrews')).toBe(25);
@@ -104,17 +107,20 @@ describe('Store', () => {
         members: ['Dalinar Kohlin'],
       });
 
-      warcampStore.register('warcamp/recruitSoldiers', async () => {
-        // mock async requests that fetch data from the server, for example
-        const amount = await new Promise<number>((resolve) =>
-          setTimeout(() => resolve(100), 0),
-        );
+      warcampStore.register<{ soldiers: number }>(
+        'warcamp/recruitSoldiers',
+        async () => {
+          // mock async requests that fetch data from the server, for example
+          const amount = await new Promise<number>((resolve) =>
+            setTimeout(() => resolve(100), 0),
+          );
 
-        return (state) => ({
-          ...state,
-          soldiers: (state.soldiers as number) + amount,
-        });
-      });
+          return (state) => ({
+            ...state,
+            soldiers: state.soldiers + amount,
+          });
+        },
+      );
     });
 
     test('that are unsubscribed', async () => {
@@ -146,9 +152,9 @@ describe('Store', () => {
 
   describe('selectors', () => {
     test('that were not previously defined', () => {
-      radiantsStore.addSelector(
+      radiantsStore.addSelector<{ bondsmiths: Order }>(
         'leader',
-        (state) => (state.bondsmiths as Order).members[0],
+        (state) => state.bondsmiths.members[0],
       );
 
       expect(radiantsStore.selectState('leader')).toBe('Dalinar Kohlin');
@@ -218,8 +224,8 @@ describe('Store', () => {
 
     test('from inside a component when the value needs to stay up-to-date and using the whole state', async () => {
       function DynamicComponent() {
-        const state = warcampStore.useState();
-        return <span>{state.soldiers as string}</span>;
+        const state = warcampStore.useState<{ soldiers: string }>();
+        return <span>{state.soldiers}</span>;
       }
 
       render(<DynamicComponent />);

@@ -15,13 +15,13 @@ type ResolvedSideEffect = {
   reducer: Reducer | void;
   store: Store;
 };
-type SideEffectRunnerObject = {
-  [event: string]: SideEffectRunner;
+type SideEffectRunnerObject<T extends State = State> = {
+  [event: string]: SideEffectRunner<T>;
 };
 type StatusObject = {
   dispatching: boolean;
   error: Error | null;
-  payload: any[];
+  payload: unknown[];
 };
 
 let fluxIsReducing: Promise<void> | null = null;
@@ -40,13 +40,16 @@ const stores: {
 /**
  * Adds a store to the system
  */
-const addStore = (namespace: string, initialState: State): Store => {
+const addStore = <T extends State = State>(
+  namespace: string,
+  initialState: T,
+): Store<T> => {
   if (namespace.indexOf('.') !== -1 || namespace.indexOf('/') !== -1) {
     throw new Error(`Store names cannot contain a period or forward-slash.`);
   }
 
   // always override with the latest store (to make fast-refresh work)
-  return (stores[namespace] = new Store(namespace, initialState));
+  return (stores[namespace] = new Store<T>(namespace, initialState));
 };
 
 /**
@@ -67,12 +70,14 @@ const dispatchError = (
   event: string,
   err: Error,
   ...payload: unknown[]
-): number =>
-  // wrap in a timeout so the error will be logged after the current event
-  window.setTimeout(
-    () => dispatchWhenAllowed(null, 'flux/error', event, err, ...payload),
-    0,
-  );
+): Promise<void> =>
+  new Promise((resolve) => {
+    // wrap in a timeout so the error will be logged after the current event
+    window.setTimeout(async () => {
+      await dispatchWhenAllowed(null, 'flux/error', event, err, ...payload);
+      resolve();
+    }, 0);
+  });
 
 /**
  * Dispatched the event immediately
@@ -315,10 +320,10 @@ const useStatus = (event: string): StatusObject =>
 /**
  * Setups up a store from within a component
  */
-const useStore = <T extends State>(
+const useStore = <T extends State = State>(
   namespace: string,
-  initialState: State,
-  sideEffectRunners: SideEffectRunnerObject,
+  initialState: T,
+  sideEffectRunners: SideEffectRunnerObject<T>,
 ): T => {
   // only call addStore if the store hasn't been previously added
   // this makes fast refresh work with useStore
@@ -389,5 +394,5 @@ export default Object.create(stores, {
   readonly [namespace: string]: Store | undefined;
 };
 
-type StoreInterface = InstanceType<typeof Store>;
-export { StoreInterface as Store };
+type StoreInterface<T extends State = State> = Store<T>;
+export { State, StoreInterface as Store };

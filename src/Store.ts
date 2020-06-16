@@ -1,16 +1,16 @@
 import stateManager, { State } from './stateManager';
 
 type DispatchCallback = (event: string, ...payload: any[]) => Promise<void>;
-type Reducer = (state: State) => State;
-type Selector<T = unknown> = (state: State, ...args: any[]) => T;
+type Reducer<T extends State = State> = (state: T) => State;
+type Selector<S extends State, T = unknown> = (state: S, ...args: any[]) => T;
 type SideEffect = {
   promise: Promise<Reducer | void>;
   store: Store;
 };
-type SideEffectRunner = (
+type SideEffectRunner<T extends State = State> = (
   dispatch: DispatchCallback,
   ...payload: any[]
-) => Promise<Reducer | void> | Reducer | void;
+) => Promise<Reducer<T> | void> | Reducer<T> | void;
 type UnregisterCallback = () => void;
 
 /**
@@ -39,40 +39,40 @@ const assertPropertyFormat = (property: string) => {
 /**
  * Gets the property value from the state
  */
-function getState(
+function getState<S extends State>(
   namespace: string,
   selectors: {
-    [property: string]: Selector;
+    [property: string]: Selector<S>;
   },
   getStateFn: 'selectState' | 'useState',
-): State;
-function getState<T = unknown>(
+): S;
+function getState<S extends State, T = unknown>(
   namespace: string,
   selectors: {
-    [property: string]: Selector;
+    [property: string]: Selector<S>;
   },
   getStateFn: 'selectState' | 'useState',
   property: string,
   ...args: unknown[]
 ): T | undefined;
-function getState<T = unknown>(
+function getState<S extends State, T = unknown>(
   namespace: string,
   selectors: {
-    [property: string]: Selector;
+    [property: string]: Selector<S>;
   },
   getStateFn: 'selectState' | 'useState',
   property?: string,
   ...args: unknown[]
-): State | T | undefined {
-  let state: State;
+): S | T | undefined {
+  let state: S;
   if (getStateFn === 'selectState') {
-    state = stateManager.selectState<State>(namespace);
+    state = stateManager.selectState<S>(namespace);
   } else if (getStateFn === 'useState') {
-    state = stateManager.useState<State>(namespace)[0];
+    state = stateManager.useState<S>(namespace)[0];
   }
 
   if (property && selectors[property]) {
-    return (selectors[property] as Selector<T>)(state!, ...args);
+    return (selectors[property] as Selector<S, T>)(state!, ...args);
   } else {
     // if no property is set, just return the state
     if (property === undefined) {
@@ -83,15 +83,15 @@ function getState<T = unknown>(
   }
 }
 
-export default class Store {
+export default class Store<S extends State = State> {
   namespace: string;
   selectors: {
-    [property: string]: Selector;
+    [property: string]: Selector<any>;
   };
   sideEffectRunnerKey: number;
   sideEffectRunners: {
     [event: string]: {
-      [sideEffectRunnerKey: number]: SideEffectRunner;
+      [sideEffectRunnerKey: number]: SideEffectRunner<any>;
     };
   };
 
@@ -112,7 +112,7 @@ export default class Store {
   /**
    * Adds a selector to normalize the data that is being selected
    */
-  addSelector(property: string, selector: Selector): void {
+  addSelector<T extends S = S>(property: string, selector: Selector<T>): void {
     assertPropertyFormat(property);
     this.selectors[property] = selector;
   }
@@ -121,7 +121,7 @@ export default class Store {
    * Uses the given reducer to reduce the state
    */
   reduce(reducer: Reducer): [boolean, State, State] {
-    const oldState = stateManager.selectState(this.namespace) as State;
+    const oldState = stateManager.selectState<State>(this.namespace);
     const newState = reducer(oldState);
 
     return [
@@ -135,9 +135,9 @@ export default class Store {
    * Registers the given side-effect runner for the specified event. Returns a
    * function that can be used to unregister
    */
-  register(
+  register<T extends S = S>(
     event: string,
-    sideEffectRunner: SideEffectRunner,
+    sideEffectRunner: SideEffectRunner<T>,
   ): UnregisterCallback {
     assertEventFormat(event);
 
@@ -157,16 +157,16 @@ export default class Store {
    * Accesses the state specified by the given property. This method call does
    * not register for updates
    */
-  selectState(): State;
+  selectState<R extends S = S>(): R;
   selectState<T = unknown>(property: string, ...args: unknown[]): T | undefined;
   selectState<T = unknown>(
     property?: string,
     ...args: unknown[]
-  ): State | T | undefined {
+  ): S | T | undefined {
     if (property === undefined) {
-      return getState(this.namespace, this.selectors, 'selectState');
+      return getState<S>(this.namespace, this.selectors, 'selectState');
     } else {
-      return getState<T>(
+      return getState<S, T>(
         this.namespace,
         this.selectors,
         'selectState',
@@ -203,16 +203,16 @@ export default class Store {
    * Accesses the state specified by the given property. This method call
    * registers for updates so the value is always up-to-date
    */
-  useState(): State;
+  useState<R extends S = S>(): R;
   useState<T = unknown>(property: string, ...args: unknown[]): T | undefined;
   useState<T = unknown>(
     property?: string,
     ...args: unknown[]
-  ): State | T | undefined {
+  ): S | T | undefined {
     if (property === undefined) {
-      return getState(this.namespace, this.selectors, 'useState');
+      return getState<S>(this.namespace, this.selectors, 'useState');
     } else {
-      return getState<T>(
+      return getState<S, T>(
         this.namespace,
         this.selectors,
         'useState',
