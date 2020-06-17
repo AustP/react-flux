@@ -37,7 +37,7 @@ const selectState = <T = unknown>(property: string): T =>
  * Sets the property to the specified value. Informs subscribers that the
  * property was changed. Returns whether or not the state was changed
  */
-const setState = <T>(property: string, value: T): boolean => {
+const setState = (property: string, value: any): boolean => {
   if (areValuesEqual(stateManager[property], value)) {
     return false;
   }
