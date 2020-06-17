@@ -30,7 +30,7 @@
     "state"
   ],
   "license": "MIT",
-  "main": "dist/flux.js",
+  "main": "dist/src/flux.js",
   "name": "@aust/react-flux",
   "peerDependencies": {
     "react": "^16.8.0"
@@ -47,6 +47,6 @@
     "start": "tsc --watch",
     "test": "jest --verbose"
   },
-  "typings": "dist/flux.d.ts",
+  "typings": "dist/src/flux.d.ts",
   "version": "1.0.1"
 }
