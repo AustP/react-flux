@@ -31,19 +31,22 @@
   ],
   "license": "MIT",
   "main": "dist/flux.js",
-  "name": "react-flux",
+  "name": "@aust/react-flux",
   "peerDependencies": {
     "react": "^16.8.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "repository": "https://github.com/AustP/react-flux.git",
   "scripts": {
     "build": "yarn clean && tsc --listEmittedFiles",
     "clean": "rm -rf ./dist",
     "lint": "tslint 'src/*.ts'",
-    "release": "yarn lint && yarn build && np",
+    "release": "yarn lint && yarn build && npm login && np",
     "start": "tsc --watch",
     "test": "jest --verbose"
   },
   "typings": "dist/flux.d.ts",
-  "version": "0.10.0"
+  "version": "1.0.0"
 }
