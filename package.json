@@ -48,5 +48,5 @@
     "test": "jest --verbose"
   },
   "typings": "dist/src/flux.d.ts",
-  "version": "1.0.3"
+  "version": "1.0.4"
 }
