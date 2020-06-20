@@ -1,7 +1,13 @@
 import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 
-import flux from '../src/flux';
+import flux, { Store } from '../src/flux';
+
+declare global {
+  interface Flux {
+    warcamp: Store<{ bridgeCrews: number; soldiers: number }>;
+  }
+}
 
 const TIMEOUT_PAY_SOLDIERS = 200;
 const TIMEOUT_RECRUIT_SOLDIERS = 200;
@@ -191,7 +197,7 @@ describe('flux', () => {
 
   describe('accessing stores', () => {
     test('directly', () => {
-      expect(flux.warcamp!.selectState('bridgeCrews')).toBe(25);
+      expect(flux.warcamp.selectState('bridgeCrews')).toBe(25);
     });
 
     test('by iteration', () => {

@@ -1,4 +1,17 @@
-import flux from '../src/flux';
+import flux, { Store } from '../src/flux';
+
+declare global {
+  interface Flux {
+    warcamp: Store<{
+      barracksBuilt: boolean;
+      buildings: string[];
+      bridgeCrews: number;
+      gemheartCaptured: boolean;
+      soldiers: number;
+      soldiersFed: boolean;
+    }>;
+  }
+}
 
 const TIMEOUT_BUILD_BARRACKS = 400;
 const TIMEOUT_FEED_SOLDIERS = 100;
@@ -202,7 +215,7 @@ describe('events', () => {
 
     test('it can be awaited for', async () => {
       await flux.dispatch('warcamp/feedSoldiers');
-      expect(flux.warcamp!.selectState('soldiersFed')).toBe(true);
+      expect(flux.warcamp.selectState('soldiersFed')).toBe(true);
     });
 
     test('it happens after side-effects are awaited', async () => {
@@ -211,12 +224,12 @@ describe('events', () => {
       );
 
       flux.dispatch('warcamp/feedSoldiers');
-      expect(flux.warcamp!.selectState('soldiersFed')).toBe(false);
+      expect(flux.warcamp.selectState('soldiersFed')).toBe(false);
 
       await new Promise((resolve) =>
         setTimeout(resolve, TIMEOUT_FEED_SOLDIERS),
       );
-      expect(flux.warcamp!.selectState('soldiersFed')).toBe(true);
+      expect(flux.warcamp.selectState('soldiersFed')).toBe(true);
     });
 
     test('it happens before side-effects that are not awaited', async () => {
@@ -225,15 +238,15 @@ describe('events', () => {
       );
 
       await flux.dispatch('warcamp/recruitSoldiers');
-      expect(flux.warcamp!.selectState('barracksBuilt')).toBe(false);
-      expect(flux.warcamp!.selectState('soldiers')).toBe(11900);
+      expect(flux.warcamp.selectState('barracksBuilt')).toBe(false);
+      expect(flux.warcamp.selectState('soldiers')).toBe(11900);
       expect(flux.selectStatus('warcamp/buildBarracks').dispatching).toBe(true);
 
       await new Promise((resolve) =>
         setTimeout(resolve, TIMEOUT_BUILD_BARRACKS),
       );
-      expect(flux.warcamp!.selectState('barracksBuilt')).toBe(true);
-      expect(flux.warcamp!.selectState('soldiers')).toBe(11900);
+      expect(flux.warcamp.selectState('barracksBuilt')).toBe(true);
+      expect(flux.warcamp.selectState('soldiers')).toBe(11900);
       expect(flux.selectStatus('warcamp/buildBarracks').dispatching).toBe(
         false,
       );
@@ -250,7 +263,7 @@ describe('events', () => {
       );
 
       await flux.dispatch('warcamp/fightForGemheart');
-      expect(flux.warcamp!.selectState('gemheartCaptured')).toBe(true);
+      expect(flux.warcamp.selectState('gemheartCaptured')).toBe(true);
       expect(flux.selectStatus('warcamp/celebrate').dispatching).toBe(true);
 
       await new Promise((resolve) => setTimeout(resolve, 0));

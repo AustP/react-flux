@@ -370,6 +370,18 @@ const useStore = <T extends State = State>(
   return Object.freeze(result) as T;
 };
 
+declare global {
+  interface Flux {
+    readonly [Symbol.iterator]: () => Iterator<Store>;
+    readonly addStore: typeof addStore;
+    readonly dispatch: DispatchCallback;
+    readonly selectStatus: typeof selectStatus;
+    readonly setOption: typeof setOption;
+    readonly useStatus: typeof useStatus;
+    readonly useStore: typeof useStore;
+  }
+}
+
 const getPropertyDescriptor = (value: any): any => ({ value });
 export default Object.create(stores, {
   [Symbol.iterator]: getPropertyDescriptor(() =>
@@ -383,17 +395,9 @@ export default Object.create(stores, {
   setOption: getPropertyDescriptor(setOption),
   useStatus: getPropertyDescriptor(useStatus),
   useStore: getPropertyDescriptor(useStore),
-}) as {
-  readonly [Symbol.iterator]: () => Iterator<Store>;
-  readonly addStore: typeof addStore;
-  readonly dispatch: DispatchCallback;
-  readonly selectStatus: typeof selectStatus;
-  readonly setOption: typeof setOption;
-  readonly useStatus: typeof useStatus;
-  readonly useStore: typeof useStore;
-} & {
+}) as Flux & {
   readonly [namespace: string]: Store | undefined;
 };
 
 type StoreInterface<T extends State = State> = Store<T>;
-export { State, StoreInterface as Store };
+export { Flux, State, StoreInterface as Store };
