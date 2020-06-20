@@ -2,7 +2,7 @@ import stateManager, { State } from './stateManager';
 
 type DispatchCallback = (event: string, ...payload: any[]) => Promise<void>;
 type Reducer<T extends State> = (state: T) => State;
-type Selector<T extends State> = (state: T, ...args: any[]) => any;
+type Selector<T extends State> = (state: T, ...args: any[]) => unknown;
 type SideEffect<T extends State> = {
   promise: Promise<Reducer<T> | void>;
   store: Store<T>;
@@ -102,7 +102,7 @@ function getState<S extends State>(
 export default class Store<S extends State> {
   namespace: string;
   selectors: {
-    [property: string]: Selector<any>;
+    [property: string]: Selector<S>;
   };
   sideEffectRunnerKey: number;
   sideEffectRunners: {
