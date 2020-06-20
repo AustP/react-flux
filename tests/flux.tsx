@@ -5,7 +5,7 @@ import flux, { Store } from '../src/flux';
 
 declare global {
   interface Flux {
-    warcamp: Store<{ bridgeCrews: number; soldiers: number }>;
+    warcamp2: Store<{ bridgeCrews: number; soldiers: number }>;
   }
 }
 
@@ -14,7 +14,7 @@ const TIMEOUT_RECRUIT_SOLDIERS = 200;
 beforeAll(() => {
   flux.setOption('displayLogs', false);
 
-  const warcampStore = flux.addStore('warcamp', {
+  const warcampStore = flux.addStore('warcamp2', {
     bridgeCrews: 24,
     soldiers: 11700,
   });
@@ -165,12 +165,8 @@ describe('flux', () => {
 
   describe('useStore', () => {
     test('it works', async () => {
-      type DiagramState = {
-        followers: number;
-      };
-
       function DynamicComponent() {
-        const { followers } = flux.useStore<DiagramState>(
+        const { followers } = flux.useStore(
           'diagram',
           {
             followers: 117,
@@ -197,19 +193,21 @@ describe('flux', () => {
 
   describe('accessing stores', () => {
     test('directly', () => {
-      expect(flux.warcamp.selectState('bridgeCrews')).toBe(25);
+      expect(flux.warcamp2.selectState('bridgeCrews')).toBe(25);
     });
 
     test('by iteration', () => {
       for (const store of flux) {
         expect(
-          store.namespace === 'diagram' || store.namespace === 'warcamp',
+          store.namespace === 'diagram' || store.namespace === 'warcamp2',
         ).toBe(true);
       }
 
       for (const storeName in flux) {
         if (flux.hasOwnProperty(storeName)) {
-          expect(storeName === 'diagram' || storeName === 'warcamp').toBe(true);
+          expect(storeName === 'diagram' || storeName === 'warcamp2').toBe(
+            true,
+          );
         }
       }
     });

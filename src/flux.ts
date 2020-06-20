@@ -11,11 +11,11 @@ import Store, {
   UnregisterCallback,
 } from './Store';
 
-type ResolvedSideEffect = {
-  reducer: Reducer | void;
-  store: Store;
+type ResolvedSideEffect<T extends State> = {
+  reducer: Reducer<T> | void;
+  store: Store<T>;
 };
-type SideEffectRunnerObject<T extends State = State> = {
+type SideEffectRunnerObject<T extends State> = {
   [event: string]: SideEffectRunner<T>;
 };
 type StatusObject = {
@@ -34,13 +34,13 @@ const options = {
 
 // store management
 const stores: {
-  [namespace: string]: Store;
+  [namespace: string]: Store<any>;
 } = {};
 
 /**
  * Adds a store to the system
  */
-const addStore = <T extends State = State>(
+const addStore = <T extends State>(
   namespace: string,
   initialState: T,
 ): Store<T> => {
@@ -104,9 +104,9 @@ const dispatchImmediately = (
     }
 
     // start running side-effects
-    let lastStore: null | Store = null;
+    let lastStore: null | Store<State> = null;
     try {
-      let sideEffects: SideEffect[] = [];
+      let sideEffects: SideEffect<State>[] = [];
       for (const namespace in stores) {
         if (stores.hasOwnProperty(namespace)) {
           const store = stores[namespace];
@@ -126,9 +126,9 @@ const dispatchImmediately = (
 
       // we need to keep track of which store goes with which reducer
       // the following code is basically Promise.all
-      const reducers = await new Promise<ResolvedSideEffect[]>(
+      const reducers = await new Promise<ResolvedSideEffect<State>[]>(
         (resolve, reject) => {
-          const result: ResolvedSideEffect[] = [];
+          const result: ResolvedSideEffect<State>[] = [];
           let remaining = sideEffects.length;
           if (remaining === 0) {
             resolve(result);
@@ -321,7 +321,7 @@ const useStatus = (event: string): StatusObject =>
 /**
  * Setups up a store from within a component
  */
-const useStore = <T extends State = State>(
+const useStore = <T extends State>(
   namespace: string,
   initialState: T,
   sideEffectRunners: SideEffectRunnerObject<T>,
@@ -366,13 +366,12 @@ const useStore = <T extends State = State>(
     {},
   );
 
-  // if they specify a return type, we will cast it to that
   return Object.freeze(result) as T;
 };
 
 declare global {
   interface Flux {
-    readonly [Symbol.iterator]: () => Iterator<Store>;
+    readonly [Symbol.iterator]: () => Iterator<Store<State>>;
     readonly addStore: typeof addStore;
     readonly dispatch: DispatchCallback;
     readonly selectStatus: typeof selectStatus;
@@ -396,8 +395,8 @@ export default Object.create(stores, {
   useStatus: getPropertyDescriptor(useStatus),
   useStore: getPropertyDescriptor(useStore),
 }) as Flux & {
-  readonly [namespace: string]: Store | undefined;
+  readonly [namespace: string]: Store<State> | undefined;
 };
 
-type StoreInterface<T extends State = State> = Store<T>;
-export { Flux, State, StoreInterface as Store };
+type StoreInterface<T extends State> = Store<T>;
+export { Flux, StoreInterface as Store };

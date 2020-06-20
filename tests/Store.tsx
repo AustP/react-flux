@@ -10,8 +10,17 @@ type Order = {
 beforeAll(() => flux.setOption('displayLogs', false));
 
 describe('Store', () => {
-  let radiantsStore: Store;
-  let warcampStore: Store;
+  let radiantsStore: Store<{
+    bondsmiths?: Order;
+    leader?: string;
+    lightweavers?: Order | string;
+    windrunners: Order;
+  }>;
+  let warcampStore: Store<{
+    bridgeCrews: number;
+    soldiers: number;
+  }>;
+
   test('it can be added to the flux system', () => {
     radiantsStore = flux.addStore('radiants', {
       windrunners: {
@@ -56,13 +65,10 @@ describe('Store', () => {
         members: ['Shallan Davar'],
       });
 
-      warcampStore.register<{ bridgeCrews: number }>(
-        'warcamp/addBridgeCrew',
-        () => (state) => ({
-          ...state,
-          bridgeCrews: state.bridgeCrews + 1,
-        }),
-      );
+      warcampStore.register('warcamp/addBridgeCrew', () => (state) => ({
+        ...state,
+        bridgeCrews: state.bridgeCrews + 1,
+      }));
 
       await flux.dispatch('warcamp/addBridgeCrew');
       expect(warcampStore.selectState('bridgeCrews')).toBe(25);
@@ -107,20 +113,17 @@ describe('Store', () => {
         members: ['Dalinar Kohlin'],
       });
 
-      warcampStore.register<{ soldiers: number }>(
-        'warcamp/recruitSoldiers',
-        async () => {
-          // mock async requests that fetch data from the server, for example
-          const amount = await new Promise<number>((resolve) =>
-            setTimeout(() => resolve(100), 0),
-          );
+      warcampStore.register('warcamp/recruitSoldiers', async () => {
+        // mock async requests that fetch data from the server, for example
+        const amount = await new Promise<number>((resolve) =>
+          setTimeout(() => resolve(100), 0),
+        );
 
-          return (state) => ({
-            ...state,
-            soldiers: state.soldiers + amount,
-          });
-        },
-      );
+        return (state) => ({
+          ...state,
+          soldiers: state.soldiers + amount,
+        });
+      });
     });
 
     test('that are unsubscribed', async () => {
@@ -152,9 +155,9 @@ describe('Store', () => {
 
   describe('selectors', () => {
     test('that were not previously defined', () => {
-      radiantsStore.addSelector<{ bondsmiths: Order }>(
+      radiantsStore.addSelector(
         'leader',
-        (state) => state.bondsmiths.members[0],
+        (state) => state.bondsmiths!.members[0],
       );
 
       expect(radiantsStore.selectState('leader')).toBe('Dalinar Kohlin');
@@ -196,7 +199,7 @@ describe('Store', () => {
 
     test("from inside a component when the value doesn't need to stay up-to-date", async () => {
       function StaticComponent() {
-        const bridgeCrews = warcampStore.selectState<number>('bridgeCrews');
+        const bridgeCrews = warcampStore.selectState('bridgeCrews');
         return <span>{bridgeCrews}</span>;
       }
 
@@ -210,7 +213,7 @@ describe('Store', () => {
 
     test('from inside a component when the value needs to stay up-to-date', async () => {
       function DynamicComponent() {
-        const soldiers = warcampStore.useState<string>('soldiers');
+        const soldiers = warcampStore.useState('soldiers');
         return <span>{soldiers}</span>;
       }
 
@@ -224,7 +227,7 @@ describe('Store', () => {
 
     test('from inside a component when the value needs to stay up-to-date and using the whole state', async () => {
       function DynamicComponent() {
-        const state = warcampStore.useState<{ soldiers: string }>();
+        const state = warcampStore.useState();
         return <span>{state.soldiers}</span>;
       }
 
