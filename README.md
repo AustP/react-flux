@@ -1,109 +1,186 @@
 # react-flux
 
-This is a flux implementation for React. The primary focus of this library is to allow you to have global state in a React application while simultaneously putting side-effects at the center of your state management. You could probably use React's useState to accomplish this, but you will pull your hair out when you have to:
+react-flux is a React state management library with an emphasis on side-effects and global state.
 
-1. Deal with the React Context API.
-2. Prevent the entire component tree from pointless re-rendering.
-3. Figure out why your state is randomly updating.
-4. Access or update the state from outside the component tree.
+## Installation
 
-Save your hair, use react-flux.
-
-## A New Paradigm for Accessing State
-
-Before diving in to how to use this library, we want to explain the thought process we ought to have when accessing state.
-
-We tend to think that there is only one way to access state. After all, when you need a value from the state, you simply retrieve it. However, more often than not in our React applications, we don't just want to access the value that is currently in the state, we want our components to *reflect* the values that are in the state. In other words, sometimes we want our components to re-render whenever the state changes so the value is always up-to-date.
-
-This means that we need to have two methods to access the state. One for simply retrieving the state, and another for retrieving the state while also registering for changes.
-
-To help you decide which method to use, whenever you need to access the state, you should focus on **whether or not you need the retrieved value to always reflect the value that is in the state.** If you need the value to always stay up-to-date, then you should use: `useState`. Otherwise, you should use: `selectState`. See below for more details on these methods.
+```(bash)
+yarn add @aust/react-flux
+```
 
 ## Usage
 
-### Setting up the Store
+react-flux is a flux implementation. This means you will create stores and use reducers to update the state in response to events that are dispatched. As we go through how to use react-flux, we will show how to solve a real-world problem: user authentication.
 
-This is a flux implementation but because side-effects are placed front and center, rather than adding reducers immediately to the stores, you will need to add side-effect runners. These side-effect runners will need to return reducer functions if you want to reduce the state. Let's look at a simple store as an example:
+To access the flux API:
 
-```(js)
-// this store handles the authentication of our user
+```(ts)
+import flux from '@aust/react-flux';
+```
+
+### Creating a Store
+
+When working with stores, it is best to keep all of the store's logic in the same file. i.e. put all of the event registrations and selectors in the same file that you add the store to the flux system. If you don't do this, you may run into issues when working with fast-refresh.
+
+When you create a store, you must specify a unique namespace for the store as the first parameter and the initial state of the store as the second parameter.
+
+```(ts)
 const store = flux.addStore('auth', {
-  token: null,
+  token: null
 });
+```
 
-// we can use selectors to override properties for convenience
-store.addSelector('token', (state) => jwtDecode(state.token));
+### Registering for Events
 
-// we can also add properties using selectors
-store.addSelector('username', (state) => store.selectState('token').username);
+In react-flux, rather than immediately reducing the state when seeing an event, the store has the chance to trigger any side-effects. After the side-effects are triggered (and possibly awaited), then the state can be reduced.
 
-store.register('auth/login', async (dispatch, username, password) => {
+This means that when you register a store to watch for a specific event, you need to supply a [side-effect runner](#side-effect-runner).
+
+**NOTE: Events must be formatted like: namespace/event.**
+
+```(ts)
+store.register('auth/login', async (dispatch, email, password) => {
   // make a POST fetch request to authenticate the user
-  const token = await makeALoginRequest(username, password);
+  const token = await makeALoginRequest(email, password);
 
   // now that we've authenticated, we will return a reducer function
-  return (state) => ({ token });
+  return () => ({ token });
+});
+
+store.register('auth/logout', () => () => ({
+  token: null,
+}));
+```
+
+#### Side-Effect Runner
+
+```(ts)
+type DispatchCallback = (event: string, ...payload: any[]) => Promise<void>;
+type SideEffectRunner = (dispatch: DispatchCallback, ...payload: any[]) => Promise<Reducer | void> | Reducer | void;
+```
+
+When the side-effect runner triggers, it is given a dispatch callback as it's first parameter. Any parameters used when dispatching the event that triggered the runner will also be passed to the runner.
+
+**NOTE: If your runner needs to dispatch an event, you should use the given dispatch callback to make logging work correctly.**
+
+```(ts)
+dispatch('some/event', 'some', 'values');
+
+// in some store file
+store.register('some/event', (dispatch, param1, param2) => {
+  // `dispatch` can be used to dispatch new events
+  // `param1` === 'some'
+  // `param2` === 'values'
 });
 ```
 
-The API is explained in more detail below, but for now focus on the `store.register` function. Notice that we register to listen for the `auth/login` event. When that event is dispatched, it will be dispatched with the username and the password that we are authenticating. After it is dispatched, our supplied side-effect runner will be executed.
+If you want your runner to update the store's state, you can either return a [reducer](#reducer-function) (to update immediately) or a promise that resolves with a reducer (to update eventually). If you don't want your runner to update the state at all, simply don't return anything or return a promise that doesn't resolve with anything (this is useful when a side-effect requires the result from another side-effect).
 
-Notice that our side-effect runner is indeed executing a side-effect, i.e. it is making a request to our backend server to see if the username/password are correct. If it is correct, a JWT token will be returned which we then want to save in our store so we can use it later. We save it by returning a reducer function that takes the current state of the store and returns the new state with the new token.
+```(ts)
+// these runners update the state
+store.register('reduce/immediately', () => {
+  sideEffect1();
 
-react-flux freezes the state whenever it is updated so you are required to return a new state object whenever you are reducing the state. It is not a deep freeze so be careful not to mutate any objects that you might include in the state.
+  return (state) => ({...state, sideEffect1Triggered: true});
+});
+store.register('reduce/eventually', async () => {
+  const result = await sideEffect2();
 
-*NOTE: Side-effect runners are not required to return reducer functions.*
+  return (state) => ({...state, result});
+});
 
-### Accessing the State
-
-```(js)
-export function DynamicGreetings() {
-  // because we are using useState,
-  // this component will re-render when the state changes
-  const username = flux.auth.useState('username');
-
-  return `Welcome, ${username}`;
-}
-
-export function StaticGreetings() {
-  // because we are using selectState,
-  // this component will not re-render when the state changes
-  const username = flux.auth.selectState('username');
-
-  return `Howdy, ${username}`;
-}
+// these runners don't update the state
+store.register('trigger/side-effects', () => {
+  sideEffect1();
+});
+store.register('trigger/side-effects-with-dependencies', async () => {
+  const result = await sideEffect2();
+  sideEffect3(result);
+});
 ```
 
-The above two components both access the state. The DynamicGreetings component uses `useState` so it registers for state changes and will re-render if the username updates.
+#### Reducer Function
 
-The StaticGreetings component on the other hand uses `selectState` so it will display the value that is currently in the state when it renders and won't register for updates. If it gets re-rendered by React (a component above re-rendering for example), it will select the current value again. If the value had changed between those two times, then it will be displaying a different value.
-
-```(js)
-function randomFunctionOutsideReactTree() {
-  // can't use flux.auth.useState('username') here
-  const username = flux.auth.selectState('username');
-
-  // ...
-}
+```(ts)
+type Reducer = (state: {}) => {};
 ```
 
-Because `useState` uses React hooks, it can only be called from within a React component or a custom hook. If you need to access the state outside of the React component tree, you can do so using `selectState`.
+The reducer function is given the store's current state as it's one and only parameter. It is the reducer's job to use that state to calculate and return the new state for the store.
 
-### Dispatching Events
+**NOTE: It is important that the reducer does *not* modify the current state; rather, it must return a new object. Because of this requirement, it is often useful to use the [object literal spread syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax).**
 
-```(js)
+```(ts)
+return (state) => ({
+  ...state,
+  override: 'stuff'
+});
+```
+
+### Dispatching an Event
+
+When dispatching events, we can pass additional information that will be picked up by the side-effect runners. For our auth system, we could dispatch the `auth/login` event by doing the following:
+
+```(ts)
+flux.dispatch('auth/login', 'kaladin@windrunners.com', 'storminglighteyes');
+```
+
+However, many events will be dispatched via user interaction so generally dispatching events looks more like this:
+
+```(tsx)
 export default function LoginForm() {
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const { dispatching, error } = flux.useStatus('auth/login');
 
   return <>
-    <input onChange={(e) => setUsername(e.target.value)} type="text" value={username} />
-    <input onChange={(e) => setPassword(e.target.value)} type="password" value={password} />
-    {error && <ErrorMessage>{error.message}</ErrorMessage>}
+    <input
+      onChange={(e) => setEmail(e.target.value)}
+      type="email"
+      value={email}
+    />
+    <input
+      onChange={(e) => setPassword(e.target.value)}
+      type="password"
+      value={password}
+    />
+    <button
+      onClick={() => flux.dispatch('auth/login', email, password)}
+      type="button"
+    >
+      Login
+    </button>
+  </>;
+}
+```
+
+### Getting an Event's Status
+
+In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to use selectState/selectStatus vs useState/useStatus](#when-to-use-selectstateselectstatus-vs-usestateusestatus)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
+
+```(tsx)
+export default function LoginForm() {
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const { dispatching, error, payload } = flux.useStatus('auth/login');
+
+  if (error) {
+    console.log(payload);
+  }
+
+  return <>
+    <input
+      onChange={(e) => setEmail(e.target.value)}
+      type="email"
+      value={email}
+    />
+    <input
+      onChange={(e) => setPassword(e.target.value)}
+      type="password"
+      value={password}
+    />
+    {error && <ErrorMessage>{(error as Error).message}</ErrorMessage>}
     <button
       disabled={dispatching}
-      onClick={() => flux.dispatch('auth/login', username, password)}
+      onClick={() => flux.dispatch('auth/login', email, password)}
       type="button"
     >
       {dispatching ? 'Authenticating...' : 'Login'}
@@ -112,125 +189,82 @@ export default function LoginForm() {
 }
 ```
 
-Dispatching events is pretty straight forward. You simply call `flux.dispatch` with any additional parameters that will be forwarded to the side-effect runner in the same order.
+Notice that we added a call to `flux.useStatus('auth/login')`, a conditional logging of the event's payload, a conditional rendering of the `ErrorMessage` component, and finally, we edited the text for the `button` component to conditionally show `Authenticating...`.
 
-Also notice that react-flux has loading and error states built-in via the `flux.useStatus` method. `dispatching` will be true the moment an event is dispatched until it finishes reducing. `error` will be populated with any Error object that is not caught from a side-effect runner or from a reducer.
+**NOTE: The `payload` key will be set to the latest payload that was dispatched with the event.**
 
-## Flux API
+Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
 
-### flux.addStore(storeName: string, initialState: object)
-
-Adds a store to the flux system.
-
-*storeName*: The namespace of the store that will be used when accessing the state and dispatching events.  
-*initialState*: The initial state of the store.
-
-### flux.dispatch(event: string, [...otherArguments])
-
-Dispatches the specified event with any additional arguments supplied.
-
-*event*: The event to dispatch.  
-*...otherArguments*: These arguments will be passed to the side-effect runners.
-
-### flux.selectStatus(event: string)
-
-Selects the status of the given event. The status object contains:
-
-- *dispatching*: Whether or not the event is dispatching.
-- *error*: An Error object that was thrown from a side-effect runner or reducer.
-- *payload*: The latest payload (additional arguments) that the event was dispatched with.
-
-*event*: The event to get the status for.
-
-### flux.useStatus(event: string)
-
-Selects the status of the given event and additionally registers for updates from the event. The status object contains:
-
-- *dispatching*: Whether or not the event is dispatching.
-- *error*: An Error object that was thrown from a side-effect runner or reducer.
-- *payload*: The latest payload (additional arguments) that the event was dispatched with.
-
-*event*: The event to get the status for.  
-**NOTE: Must be called from within a React component or custom hook.**
-
-### flux.useStore(storeName: string, initialState: object, listeners: object)
-
-Shortcut method for setting up a store within a component. Returns an object with keys that match the initial state that reflect the values in the store.
-
-*storeName*: The name of the store.  
-*initialState*: The initial state of the store.  
-*listeners*: An object with keys as the un-namespaced events and the values as the side-effect runners.  
-**NOTE: Must be called from within a React component or custom hook.**
-
-```(js)
-const { count } = flux.useStore(
-  'CountingStore',
-  { count: 0 },
-  {
-    increment: () => (state) => ({ count: state.count + 1})
+```(ts)
+store.register('flux/error', (event, error, ...payload)) {
+  if (event === 'auth/login') {
+    displayError(error);
   }
+}
+```
+
+### Adding a Selector
+
+When storing state in a store, we often want to prevent duplication of information. Additionally, we may want to perform memoization to prevent expensive function calls. This is where selectors enter the picture. In our authentication system, the token that we are storing is a [JWT](https://jwt.io/introduction/). For this example, assume that our JWT has the user's name and ID as part of it's payload. Let us now add selectors to our store to make it so we can easily access the user's name:
+
+```(ts)
+import _jwtDecode from 'jwt-decode';
+import memoize from 'memoize-one';
+
+const jwtDecode = memoize(_jwtDecode);
+
+store.addSelector('tokenObject', ({ token }) => token ? jwtDecode(token) : {});
+store.addSelector('name', () => store.selectState('tokenObject').name);
+```
+
+Here you can see that we first make a memoized version of `_jwtDecode` so if the token doesn't change, then we can access the token object instantly. Next, we add a selector for `tokenObject`. If a token is in the store, this selector will return a token object from it. Finally, we add a selector for `name`. Notice that this selector uses our previous selector to access the token object and return the value specified by the name property. We can now access the user's name but our store's state is still only holding the initial token string.
+
+Selectors can even take additional arguments if needs be. Continuing our example, what if we had multiple properties in the JWT payload that we wanted to access? It might be easier to make a generic selector and pass in the property that we want to access:
+
+```(ts)
+store.addSelector(
+  'tokenPayload',
+  (state, property) => store.selectState('tokenObject')[property]
 );
 
-// flux.dispatch('CountingStore/increment');
+// to access the user's name:
+store.selectState('tokenPayload', 'name');
+
+// to acess the user's ID:
+store.selectState('tokenPayload', 'id');
 ```
 
-### flux[storeName]
+### Accessing the State
 
-If you need to access a store, you can access it directly off of the flux object by supplying the store's name.
+Now that our store is setup, we need to be able to access the state. But before we can access the state, we need to have access to the store. Most of the time when you want to access the state, it will not be in the store file so you'll need another way to access the store. When you add a store to the flux system, it is exposed via the flux object at the namespace you gave the store. To access our auth store for example, we would do this:
 
-```(js)
-flux.addStore('someStore', {
-  someValue: 117
-});
+```(ts)
+import flux from '@aust/react-flux';
 
-// later
-flux.someStore.selectState('someValue');
-flux['someStore'].selectState('someValue');
+const store = flux.auth;
 ```
 
-## Store API
+Now that we have a reference to the store, we can use the two methods available from a store object: `selectState` and `useState`. (See [When to use selectState/selectStatus vs useState/useStatus](#when-to-use-selectstateselectstatus-vs-usestateusestatus)). Both of these methods take a string as their parameter. The string that is passed will be used to first look if there is a matching selector. If there is a matching selector, the selector function will be ran. If there is no matching selector, the string will be used as a key to acccess the store's state.
 
-### store.addSelector(property: string, selector: function)
+```(tsx)
+export default function UserName() {
+  const name = flux.useState('tokenPayload', 'name');
 
-Adds a selector that will be called whenever trying to access the specified property.
-
-*property*: The property to select for. Note: You can override existing properties.  
-*selector(state: object, [...otherArguments])*: The function that will be called when accessing the property. The first argument passed to the selector will be the current state of the store. Any other arguments passed to the state selector function will be passed to the selector in the same order.
-
-### store.register(event: string, sideEffectRunner: function)
-
-Registers the store to listen for the specified event. When the event gets dispatched, the side-effect runner will execute.
-
-*event*: The event to register for.  
-*sideEffectRunner(dispatch: function, [...otherArguments])*: The function that executes when the specified event is dispatched. The first parameter to the side-effect runner is a dispatch function. Any other arguments passed to the dispatcher for the specified event will be passed to the side-effect runner in the same order. If the store needs to be reduced after running the side-effects, the side-effect runner should return a *reducer(state: object)* function. The reducer function takes the state as it's one and only argument and must return the new state.  
-**NOTE: If the side-effect runner or reducer needs to dispatch any events, they should use the given dispatch function rather than flux.dispatch so the logging system works correctly.**
-
-### store.selectState(property: string, [...otherArguments])
-
-Selects the given property from the state. Will go through a selector if it's defined, otherwise, it will just access the state.
-
-*property*: The property to access in the state.  
-*...otherArguments*: Any other arguments passed to this function will get passed to the selector function in the same order.
-
-### store.useState(property: string, [...otherArguments])
-
-Selects the given property from the state and additionally registers for state updates. Will go through a selector if it's defined, otherwise, it will just access the state.
-
-*property*: The property to access in the state.  
-*...otherArguments*: Any other arguments passed to this function will get passed to the selector function in the same order.  
-**NOTE: Must be called from within a React component or custom hook.**
-
-## Errors
-
-If an error is thrown from a side-effect runner or reducer, react-flux will catch it and update the status to include the error. The most recent payload for the event is also included in the status.
-
-```(js)
-const { error, payload } = flux.useStatus('auth/login');
-// error is set to the thrown error
-// error gets reset to null whenever the event is dispatched
+  return <span>{name}</span>;
+}
 ```
 
-react-flux will also dispatch another event, `flux/error`, with the event name, the error, and the payload. This can be useful if you want to globally display all errors or perform any other logic when an error is thrown.
+## When to use selectState/selectStatus vs useState/useStatus
+
+`store.selectState(...)` and `flux.selectStatus(...)` both give you their respective values *at that moment*. This means that when the store's state changes or the event's status changes, your variables containing these values will become stale.
+
+**NOTE: `selectState` and `selectStatus` can be called from anywhere in your codebase.**
+
+`store.useState(...)` and `flux.useStatus(...)` both give you their respective values while also registering for changes via React hooks. This means that when the store's state changes or the event's status changes, the component/custom hook that called `useState`/`useStatus` will re-render with the latest information.
+
+**NOTE: `useState` and `useStatus` must be called from in a React component or a custom hook.**
+
+What you should focus on is **whether or not you need the retrieved value to always reflect the value that is in the state**. If you need the value to always stay up-to-date, then you should use: `useState`/`useStatus`. Otherwise, you should use: `selectState`/`selectStatus`.
 
 ## Options
 
