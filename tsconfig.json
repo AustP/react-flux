@@ -7,7 +7,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,
-    "outDir": "dist/",
+    "outDir": "build/",
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
