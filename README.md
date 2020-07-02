@@ -257,39 +257,40 @@ export default function LoginForm() {
 In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
 
 ```(tsx)
-export default function LoginForm() {
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const { dispatching, error, payload } = flux.useStatus('auth/login');
+  export default function LoginForm() {
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
++   const { dispatching, error, payload } = flux.useStatus('auth/login');
++
++   if (error) {
++     console.log(payload);
++   }
 
-  if (error) {
-    console.log(payload);
+    return <>
+      <input
+        onChange={(e) => setEmail(e.target.value)}
+        type="email"
+        value={email}
+      />
+      <input
+        onChange={(e) => setPassword(e.target.value)}
+        type="password"
+        value={password}
+      />
++     {error && <ErrorMessage>{(error as Error).message}</ErrorMessage>}
+      <button
++       disabled={dispatching}
+        onClick={() => flux.dispatch('auth/login', email, password)}
+        type="button"
+      >
+-       Login
++       {dispatching ? 'Authenticating...' : 'Login'}
+      </button>
+    </>;
   }
-
-  return <>
-    <input
-      onChange={(e) => setEmail(e.target.value)}
-      type="email"
-      value={email}
-    />
-    <input
-      onChange={(e) => setPassword(e.target.value)}
-      type="password"
-      value={password}
-    />
-    {error && <ErrorMessage>{(error as Error).message}</ErrorMessage>}
-    <button
-      disabled={dispatching}
-      onClick={() => flux.dispatch('auth/login', email, password)}
-      type="button"
-    >
-      {dispatching ? 'Authenticating...' : 'Login'}
-    </button>
-  </>;
-}
 ```
 
-Notice that we added a call to `flux.useStatus('auth/login')`, a conditional logging of the event's payload, a conditional rendering of the `ErrorMessage` component, and finally, we edited the text for the `button` component to conditionally show `Authenticating...`.
+Now, if there is an error, we log the event's latest payload and display that error the user. Additionally, while the event is dispatching, we disable the button and change it's text to say `Authenticating...`. Not too shabby for 8 additions and 1 deletion.
 
 **NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
 
