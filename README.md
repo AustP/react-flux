@@ -8,6 +8,106 @@ react-flux is a React state management library with an emphasis on side-effects 
 yarn add @aust/react-flux
 ```
 
+## Basic Example
+
+Stores are at the heart of react-flux; they store and manage the state. Before we can do anything, we must first add a store to the flux system.
+
+### userStore.ts
+
+```(ts)
+import flux, { Store } from "@aust/react-flux";
+
+const store = flux.addStore("user", {
+  name: ""
+});
+
+store.register("user/setName", (dispatch, name) => () => ({ name }));
+
+// if you're not using typescript, ignore this next bit
+declare global {
+  interface Flux {
+    user: Store<{
+      name: string;
+    }>;
+  }
+}
+```
+
+Now that we've got our store setup, let's create a Form component that will use the state.
+
+### Form.tsx
+
+```(ts)
+import flux from "@aust/react-flux";
+import React from "react";
+
+export default function Form() {
+  const name = flux.user.useState("name");
+
+  return (
+    <div>
+      <span>Please type your name:</span>
+      <input
+        onChange={e => flux.dispatch("user/setName", e.target.value)}
+        type="text"
+        value={name}
+      />
+    </div>
+  );
+}
+```
+
+Notice in this example we might as well be using `React.useState`. However, you can call `flux.dispatch` from *anywhere* in your codebase and this Form component would update to match the latest value. Let's build another component that demonstrates this concept.
+
+### Randomizer.tsx
+
+```(ts)
+import flux from "@aust/react-flux";
+import React from "react";
+
+export default function Randomizer() {
+  const names = ["Dalinar", "Kaladin", "Jasnah", "Shallan"];
+
+  return (
+    <button
+      onClick={() =>
+        flux.dispatch(
+          "user/setName",
+          names[Math.floor(Math.random() * names.length)]
+        )
+      }
+    >
+      Randomize
+    </button>
+  );
+}
+```
+
+Again, this could all be handled via `React.useState` and some sort of wrapper component, but that's already getting complicated. Additionally, `React.useState` breaks down completely if you need to update the state from outside the React component tree (an ajax request for example) whereas react-flux can update the state from anywhere.
+
+Now that we've got all of our pieces, let's put it all together.
+
+### App.tsx
+
+```(ts)
+import React from "react";
+
+import "./userStore";
+import Form from "./Form";
+import Randomizer from "./Randomizer";
+
+export default function App() {
+  return (
+    <div>
+      <Form />
+      <Randomizer />
+    </div>
+  );
+}
+```
+
+You can check out a working demo at [codesandbox.io/s/keen-meadow-nwfpk](https://codesandbox.io/s/keen-meadow-nwfpk?file=/src/App.tsx). The power of this library comes when you need to update the state from *outside* the React component tree. With this library it's as simple as making a call to `flux.dispatch`. Keep reading for more details.
+
 ## Usage
 
 react-flux is a flux implementation. This means you will create stores and use reducers to update the state in response to events that are dispatched. As we go through how to use react-flux, we will show how to solve a real-world problem: user authentication.
@@ -22,7 +122,7 @@ import flux from '@aust/react-flux';
 
 When working with stores, it is best to keep all of the store's logic in the same file. i.e. put all of the event registrations and selectors in the same file that you add the store to the flux system. If you don't do this, you may run into issues when working with fast-refresh.
 
-When you create a store, you must specify a unique namespace for the store as the first parameter and the initial state of the store as the second parameter.
+When you create a store, you must specify a unique namespace for the store as the first parameter and the initial state of the store as the second parameter. (You will eventually use this namespace to access the store instance).
 
 ```(ts)
 const store = flux.addStore('auth', {
@@ -74,7 +174,7 @@ store.register('some/event', (dispatch, param1, param2) => {
 });
 ```
 
-If you want your runner to update the store's state, you can either return a [reducer](#reducer-function) (to update immediately) or a promise that resolves with a reducer (to update eventually). If you don't want your runner to update the state at all, simply don't return anything or return a promise that doesn't resolve with anything (this is useful when a side-effect requires the result from another side-effect).
+If you want your runner to update the store's state, you can either return a [reducer](#reducer-function) (to update immediately) or a promise that resolves with a reducer (to update eventually). If you don't want your runner to update the state at all, simply don't return anything or return a promise that doesn't resolve with anything.
 
 ```(ts)
 // these runners update the state
@@ -105,7 +205,7 @@ store.register('trigger/side-effects-with-dependencies', async () => {
 type Reducer = (state: {}) => {};
 ```
 
-The reducer function is given the store's current state as it's one and only parameter. It is the reducer's job to use that state to calculate and return the new state for the store.
+The reducer function is given the store's current state as it's one and only parameter. It is the reducer's job to use that state to calculate and return the new state for the store. The reducer *should not* trigger any side-effects, but it may schedule future dispatches. (See [Scheduling Future Dispatches](#scheduling-future-dispatches) for more info).
 
 **NOTE: It is important that the reducer does *not* modify the current state; rather, it must return a new object. Because of this requirement, it is often useful to use the [object literal spread syntax](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax).**
 
@@ -154,7 +254,7 @@ export default function LoginForm() {
 
 ### Getting an Event's Status
 
-In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to use selectState/selectStatus vs useState/useStatus](#when-to-use-selectstateselectstatus-vs-usestateusestatus)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
+In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
 
 ```(tsx)
 export default function LoginForm() {
@@ -191,7 +291,7 @@ export default function LoginForm() {
 
 Notice that we added a call to `flux.useStatus('auth/login')`, a conditional logging of the event's payload, a conditional rendering of the `ErrorMessage` component, and finally, we edited the text for the `button` component to conditionally show `Authenticating...`.
 
-**NOTE: The `payload` key will be set to the latest payload that was dispatched with the event.**
+**NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
 
 Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
 
@@ -236,7 +336,7 @@ store.selectState('tokenPayload', 'id');
 
 ### Accessing the State
 
-Now that our store is setup, we need to be able to access the state. But before we can access the state, we need to have access to the store. Most of the time when you want to access the state, it will not be in the store file so you'll need another way to access the store. When you add a store to the flux system, it is exposed via the flux object at the namespace you gave the store. To access our auth store for example, we would do this:
+Now that our store is setup, we are ready to access the state. But to access the state we first need a reference to the store. We can find this reference exposed from the flux object at the namespace we specified when adding the store. To access our auth store for example, we would do this:
 
 ```(ts)
 import flux from '@aust/react-flux';
@@ -244,7 +344,7 @@ import flux from '@aust/react-flux';
 const store = flux.auth;
 ```
 
-Now that we have a reference to the store, we can use the two methods available from a store object: `selectState` and `useState`. (See [When to use selectState/selectStatus vs useState/useStatus](#when-to-use-selectstateselectstatus-vs-usestateusestatus)). Both of these methods take a string as their parameter. The string that is passed will be used to first look if there is a matching selector. If there is a matching selector, the selector function will be ran. If there is no matching selector, the string will be used as a key to acccess the store's state.
+Now that we have a reference to the store, we can use the two methods available from the store object: `selectState` and `useState`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). Both of these methods take a string as their first parameter. This string will be used to look for a matching selector function. If there is a matching selector function, it will be ran with any additional parameters being passed to it. If there is no matching selector fun, the string will be used as a key to acccess the store's state. If no matching key is found in the state, the method will return `undefined`.
 
 ```(tsx)
 export default function UserName() {
@@ -254,17 +354,109 @@ export default function UserName() {
 }
 ```
 
-## When to use selectState/selectStatus vs useState/useStatus
+## Advanced Usage
 
-`store.selectState(...)` and `flux.selectStatus(...)` both give you their respective values *at that moment*. This means that when the store's state changes or the event's status changes, your variables containing these values will become stale.
+Once you're familiar with react-flux and feel comfortable using it, you can learn these advanced topics.
 
-**NOTE: `selectState` and `selectStatus` can be called from anywhere in your codebase.**
+### Using `flux.useStore`
 
-`store.useState(...)` and `flux.useStatus(...)` both give you their respective values while also registering for changes via React hooks. This means that when the store's state changes or the event's status changes, the component/custom hook that called `useState`/`useStatus` will re-render with the latest information.
+Sometimes, you will have a component that needs to keep track of a decent amount of state but not quite enough to justify creating a new store in it's own file. In these situations, we can use `flux.useStore`.
 
-**NOTE: `useState` and `useStatus` must be called from in a React component or a custom hook.**
+```(ts)
+export default function AddressForm() {
+  const { address, city, state, zip } = flux.useStore(
+    'AddressForm',
+    {
+      address: '',
+      city: '',
+      state: '',
+      zip: ''
+    }, {
+      setAddress: (dispatch, address) => (state) => ({...state, address}),
+      setCity: (dispatch, city) => (state) => ({...state, city}),
+      setState: (dispatch, state) => (oldState) => ({...oldState, state}),
+      setZip: (dispatch, zip) => (state) => ({...state, zip}),
+    }
+  );
 
-What you should focus on is **whether or not you need the retrieved value to always reflect the value that is in the state**. If you need the value to always stay up-to-date, then you should use: `useState`/`useStatus`. Otherwise, you should use: `selectState`/`selectStatus`.
+  return (
+    <div>
+      <TextInput
+        label="Address"
+        onChange={(value) => flux.dispatch('AddressForm/setAddress', value)}
+        value={address}
+      />
+      <TextInput
+        label="City"
+        onChange={(value) => flux.dispatch('AddressForm/setCity', value)}
+        value={city}
+      />
+      <TextInput
+        label="State"
+        onChange={(value) => flux.dispatch('AddressForm/setState', value)}
+        value={state}
+      />
+      <TextInput
+        label="Zip Code"
+        onChange={(value) => flux.dispatch('AddressForm/setZip', value)}
+        value={zip}
+      />
+    </div>
+  );
+}
+```
+
+`flux.useStore` has a few a advantages and disadvantages compared to multiple calls to `React.useState`.
+
+#### Advantages
+
+1. Consistent state management.
+2. Ability to trigger side-effects before reducing the state.
+3. Co-location of state reduction logic.
+4. Ability to update the state from outside the component.
+
+#### Disadvantages
+
+1. More boilerplate.
+
+### Waiting for Events
+
+Every call to `flux.dispatch` (or to the `dispatch` parameter passed to side-effect runners) returns a promise. This promise will resolve when the event finishes going through the reduction phase. This means you can dispatch an event and wait for it to finish modifying the state before proceeding.
+
+```(ts)
+await flux.dispatch('auth/login', 'kaladin@windrunners.com', 'storminglighteyes');
+
+const name = flux.selectState('tokenPayload', 'name');
+```
+
+### Scheduling Future Dispatches
+
+You can of course dispatch new events during the side-effects phase of an event but sometimes you want to make sure the next event is dispatched *after* the reduction phase of the current event. You can accomplish this by calling `dispatch` from the reducer function.
+
+```(ts)
+store.register('auth/reauthenticate', (dispatch) => {
+  dispatch('some/event'); // some/event gets dispatched immediately
+
+  return (state) => {
+    dispatch('another/event'); // another/event will dispatch after this one
+    return state;
+  };
+});
+```
+
+## When to Call the select\* Methods vs the use\* Methods
+
+As the names imply, the `useState`/`useStatus` methods not only retreive the values (like the `selectState`/`selectStatus` methods) but they additionally register for changes via React hooks. This has some implications on where we can call these methods.
+
+The biggest factor of determining when to call the `select*` methods vs the `use*` methods is the location of the code that is calling these methods.
+
+**If your calling code is outside of the React component tree...**
+
+...you must call the `select*` methods. Because the `use*` methods use React hooks, it is impossible to call them here.
+
+**If your calling code is within the React component tree...**
+
+...it depends on whether or not you need the retrieved value to always reflect the stored value. If you do, then call the `use*` methods. Otherwise, you should call the `select*` methods.
 
 ## Options
 
