@@ -19,6 +19,7 @@ type SideEffectRunnerObject<T extends State> = {
   [event: string]: SideEffectRunner<T>;
 };
 type StatusObject = {
+  count: number;
   dispatching: boolean;
   error: unknown;
   payload: unknown[];
@@ -89,6 +90,7 @@ const dispatchImmediately = (
   ...payload: unknown[]
 ): Promise<void> => {
   const promise = new Promise<void>(async (resolve) => {
+    setEventStatus(event, 'count', selectStatus(event).count + 1);
     setEventStatus(event, 'dispatching', true);
     setEventStatus(event, 'error', null);
     setEventStatus(event, 'payload', payload);
@@ -267,6 +269,7 @@ const getEventStatus = (
 
   if (!state) {
     return {
+      count: 0,
       dispatching: false,
       error: null,
       payload: [],
