@@ -1,5 +1,4 @@
-import areValuesEqual from 'fast-deep-equal';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
 import stateManager, { State } from './stateManager';
 import EventLogger from './EventLogger';
@@ -333,18 +332,9 @@ const useStore = <T extends State>(
     addStore(namespace, initialState);
   }
 
-  // we will pass a ref containing sideEffectRunners into useEffect
-  // to prevent re-rendering every time the state changes
-  // if the sideEffectRunners change though, it will re-render
-  const ref = useRef(sideEffectRunners);
-  if (!areValuesEqual(sideEffectRunners, ref.current)) {
-    ref.current = sideEffectRunners;
-  }
-
   // wrap our registration in a useEffect so when the component unmounts,
   // we won't have any memory leaks
   useEffect(() => {
-    const sideEffectRunners = ref.current;
     const unregisterCallbacks: UnregisterCallback[] = [];
     for (const event in sideEffectRunners) {
       if (sideEffectRunners.hasOwnProperty(event)) {
@@ -358,14 +348,14 @@ const useStore = <T extends State>(
     }
 
     return () => unregisterCallbacks.forEach((unregister) => unregister());
-  }, [namespace, ref]);
+  }, [namespace, sideEffectRunners]);
 
   // use useState to register this hook to update on state changes
   const state = stores[namespace].useState();
-  const result = Object.keys(initialState).reduce(
-    (result, key) => ({ ...result, [key]: state[key] }),
-    {},
-  );
+  const result: { [key: string]: any } = {};
+  Object.keys(initialState).forEach((key) => {
+    result[key] = state[key];
+  });
 
   return Object.freeze(result) as T;
 };
