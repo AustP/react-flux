@@ -167,11 +167,9 @@ const dispatchImmediately = (
           reducerCount++;
           lastStore = store;
 
-          const [updated, oldState, newState] = store.reduce(reducer);
-          if (logger && updated) {
+          const [oldState, newState] = store.reduce(reducer);
+          if (logger) {
             logger.logDiff(store.namespace, oldState, newState);
-          } else if (logger) {
-            logger.logNoChanges(store.namespace, oldState);
           }
         }
 

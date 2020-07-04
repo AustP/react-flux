@@ -210,6 +210,11 @@ export default class EventLogger {
    * Adds entries that will log the difference between the two objects
    */
   logDiff(namespace: string, from?: object, to?: object): void {
+    const diff = getDiff(from, to);
+    if (diff === undefined || !Object.keys(diff).length) {
+      return this.logNoChanges(namespace, from);
+    }
+
     this.addEntry(
       'groupCollapsed',
       `Changes for ${namespace}`,

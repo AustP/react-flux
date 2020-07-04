@@ -90,53 +90,5 @@ describe('stateManager', () => {
       stateManager.setState('villain', 'Torol Sadeas');
       expect(stateManager.selectState('villain')).toBe('Torol Sadeas');
     });
-
-    test('when the new value is equal to the previous', () => {
-      expect(stateManager.selectState('villain')).toBe('Torol Sadeas');
-      const didUpdate = stateManager.setState('villain', 'Torol Sadeas');
-      expect(stateManager.selectState('villain')).toBe('Torol Sadeas');
-      expect(didUpdate).toBe(false);
-    });
-
-    test('when the new value is different than the previous', () => {
-      expect(stateManager.selectState('villain')).toBe('Torol Sadeas');
-      const didUpdate = stateManager.setState('villain', 'Meridas Amaram');
-      expect(stateManager.selectState('villain')).toBe('Meridas Amaram');
-      expect(didUpdate).toBe(true);
-    });
-
-    test('uses deep equals to test equality', () => {
-      stateManager.setState('radiants', {
-        lightweavers: {
-          members: ['Shallan Davar'],
-        },
-        windrunners: {
-          members: ['Kaladin Stormblessed'],
-        },
-      });
-
-      let didUpdate = stateManager.setState('radiants', {
-        lightweavers: {
-          members: ['Shallan Davar'],
-        },
-        windrunners: {
-          members: ['Kaladin Stormblessed'],
-        },
-      });
-      expect(didUpdate).toBe(false);
-
-      didUpdate = stateManager.setState('radiants', {
-        bondsmiths: {
-          members: ['Dalinar Kohlin'],
-        },
-        lightweavers: {
-          members: ['Shallan Davar'],
-        },
-        windrunners: {
-          members: ['Kaladin Stormblessed'],
-        },
-      });
-      expect(didUpdate).toBe(true);
-    });
   });
 });

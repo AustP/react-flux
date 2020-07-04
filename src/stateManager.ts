@@ -1,4 +1,3 @@
-import areValuesEqual from 'fast-deep-equal';
 import { useCallback, useEffect, useState as useReactState } from 'react';
 
 type State = { readonly [key: string]: unknown };
@@ -35,21 +34,15 @@ const selectState = <T = unknown>(property: string): T =>
 
 /**
  * Sets the property to the specified value. Informs subscribers that the
- * property was changed. Returns whether or not the state was changed
+ * property was set.
  */
-const setState = (property: string, value: any): boolean => {
-  if (areValuesEqual(stateManager[property], value)) {
-    return false;
-  }
-
+const setState = (property: string, value: any): void => {
   stateManager = Object.freeze({ ...stateManager, [property]: value });
   for (const key in subscriptions[property]) {
     if (subscriptions[property].hasOwnProperty(key)) {
       subscriptions[property][key](value);
     }
   }
-
-  return true;
 };
 
 /**
@@ -75,9 +68,7 @@ const subscribe = (
  * Gets the specified property from the state manager. Subscribes for any
  * changes made via set
  */
-const useState = <T = unknown>(
-  property: string,
-): [T, (value: T) => boolean] => {
+const useState = <T = unknown>(property: string): [T, (value: T) => void] => {
   const stateValue = selectState<T>(property);
   const [reactValue, setReactValue] = useReactState<T>(stateValue);
 

@@ -136,15 +136,12 @@ export default class Store<S extends State> {
   /**
    * Uses the given reducer to reduce the state
    */
-  reduce(reducer: Reducer<State>): [boolean, State, State] {
+  reduce(reducer: Reducer<State>): [State, State] {
     const oldState = stateManager.selectState<State>(this.namespace);
     const newState = reducer(oldState);
 
-    return [
-      stateManager.setState(this.namespace, newState),
-      oldState,
-      newState,
-    ];
+    stateManager.setState(this.namespace, newState);
+    return [oldState, newState];
   }
 
   /**
