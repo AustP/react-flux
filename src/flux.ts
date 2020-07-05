@@ -325,6 +325,7 @@ const useStore = <T extends State>(
   namespace: string,
   initialState: T,
   sideEffectRunners: SideEffectRunnerObject<T>,
+  dependencies: any[] = [],
 ): T => {
   // only call addStore if the store hasn't been previously added
   // this makes fast refresh work with useStore
@@ -348,7 +349,7 @@ const useStore = <T extends State>(
     }
 
     return () => unregisterCallbacks.forEach((unregister) => unregister());
-  }, [namespace, sideEffectRunners]);
+  }, [namespace].concat(dependencies));
 
   // use useState to register this hook to update on state changes
   const state = stores[namespace].useState();
