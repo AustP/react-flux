@@ -68,14 +68,14 @@ const assertEventFormat = (event: string): void => {
  */
 const dispatchError = (
   event: string,
-  err: Error,
+  error: Error,
   ...payload: unknown[]
 ): Promise<void> =>
   new Promise((resolve) => {
     // wrap in a timeout so the error will be logged after the current event
     window.setTimeout(async () => {
-      await dispatchWhenAllowed(null, 'flux/error', event, err, ...payload);
-      setEventStatus('flux/error', 'error', err);
+      await dispatchWhenAllowed(null, 'flux/error', event, error, ...payload);
+      setEventStatus('flux/error', { error });
       resolve();
     }, 0);
   });
@@ -89,10 +89,12 @@ const dispatchImmediately = (
   ...payload: unknown[]
 ): Promise<void> => {
   const promise = new Promise<void>(async (resolve) => {
-    setEventStatus(event, 'count', selectStatus(event).count + 1);
-    setEventStatus(event, 'dispatching', true);
-    setEventStatus(event, 'error', null);
-    setEventStatus(event, 'payload', payload);
+    setEventStatus(event, {
+      count: selectStatus(event).count + 1,
+      dispatching: true,
+      error: null,
+      payload,
+    });
 
     let logger: EventLogger | null = null;
     if (options.displayLogs) {
@@ -180,7 +182,7 @@ const dispatchImmediately = (
             logger.logNoReducers(undefined, undefined);
           }
         }
-      } catch (err) {
+      } catch (error) {
         if (logger && lastStore) {
           logger.logErrorReducing(lastStore.namespace, lastStore.selectState());
         }
@@ -188,13 +190,13 @@ const dispatchImmediately = (
         // there was an error, dispatch an error event about it
         // and update the event status to include the error
         if (event !== 'flux/error') {
-          setEventStatus(event, 'error', err);
-          dispatchError(event, err, ...payload);
+          setEventStatus(event, { error });
+          dispatchError(event, error, ...payload);
         }
       }
 
       fluxIsReducing = null;
-    } catch (err) {
+    } catch (error) {
       if (logger && lastStore) {
         logger.logErrorRunningSideEffects(
           lastStore.namespace,
@@ -205,8 +207,8 @@ const dispatchImmediately = (
       // there was an error, dispatch an error event about it
       // and update the event status to include the error
       if (event !== 'flux/error') {
-        setEventStatus(event, 'error', err);
-        dispatchError(event, err, ...payload);
+        setEventStatus(event, { error });
+        dispatchError(event, error, ...payload);
       }
     }
 
@@ -214,7 +216,7 @@ const dispatchImmediately = (
       logger.resolve();
     }
 
-    setEventStatus(event, 'dispatching', false);
+    setEventStatus(event, { dispatching: false });
     resolve();
   });
 
@@ -292,7 +294,7 @@ const selectStatus = (event: string): StatusObject =>
 /**
  * Sets the event status in the state manager
  */
-const setEventStatus = (event: string, property: string, value: any): void => {
+const setEventStatus = (event: string, state: {}): void => {
   assertEventFormat(event);
 
   let oldState = stateManager.selectState<State | undefined>(event);
@@ -300,7 +302,7 @@ const setEventStatus = (event: string, property: string, value: any): void => {
     oldState = {};
   }
 
-  stateManager.setState(event, { ...oldState, [property]: value });
+  stateManager.setState(event, { ...oldState, ...state });
 };
 
 /**
