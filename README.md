@@ -15,13 +15,13 @@ Stores are at the heart of react-flux; they store and manage the state. Before w
 ### userStore.ts
 
 ```(ts)
-import flux, { Store } from "@aust/react-flux";
+import flux, { Store } from '@aust/react-flux';
 
-const store = flux.addStore("user", {
-  name: ""
+const store = flux.addStore('user', {
+  name: ''
 });
 
-store.register("user/setName", (dispatch, name) => () => ({ name }));
+store.register('user/setName', (dispatch, name) => () => ({ name }));
 
 // if you're not using typescript, ignore this next bit
 declare global {
@@ -38,18 +38,18 @@ Now that we've got our store setup, let's create a Form component that will use 
 ### Form.tsx
 
 ```(ts)
-import flux from "@aust/react-flux";
-import React from "react";
+import flux from '@aust/react-flux';
+import React from 'react';
 
 export default function Form() {
-  const name = flux.user.useState("name");
+  const name = flux.user.useState('name');
 
   return (
     <div>
       <span>Please type your name:</span>
       <input
-        onChange={e => flux.dispatch("user/setName", e.target.value)}
-        type="text"
+        onChange={e => flux.dispatch('user/setName', e.target.value)}
+        type='text'
         value={name}
       />
     </div>
@@ -62,17 +62,17 @@ Notice in this example we might as well be using `React.useState`. However, you 
 ### Randomizer.tsx
 
 ```(ts)
-import flux from "@aust/react-flux";
-import React from "react";
+import flux from '@aust/react-flux';
+import React from 'react';
 
 export default function Randomizer() {
-  const names = ["Dalinar", "Kaladin", "Jasnah", "Shallan"];
+  const names = ['Dalinar', 'Kaladin', 'Jasnah', 'Shallan'];
 
   return (
     <button
       onClick={() =>
         flux.dispatch(
-          "user/setName",
+          'user/setName',
           names[Math.floor(Math.random() * names.length)]
         )
       }
@@ -90,11 +90,11 @@ Now that we've got all of our pieces, let's put it all together.
 ### App.tsx
 
 ```(ts)
-import React from "react";
+import React from 'react';
 
-import "./userStore";
-import Form from "./Form";
-import Randomizer from "./Randomizer";
+import './userStore';
+import Form from './Form';
+import Randomizer from './Randomizer';
 
 export default function App() {
   return (
@@ -234,17 +234,17 @@ export default function LoginForm() {
   return <>
     <input
       onChange={(e) => setEmail(e.target.value)}
-      type="email"
+      type='email'
       value={email}
     />
     <input
       onChange={(e) => setPassword(e.target.value)}
-      type="password"
+      type='password'
       value={password}
     />
     <button
       onClick={() => flux.dispatch('auth/login', email, password)}
-      type="button"
+      type='button'
     >
       Login
     </button>
@@ -269,19 +269,19 @@ In our applications, we often want to display loading indicators while waiting f
     return <>
       <input
         onChange={(e) => setEmail(e.target.value)}
-        type="email"
+        type='email'
         value={email}
       />
       <input
         onChange={(e) => setPassword(e.target.value)}
-        type="password"
+        type='password'
         value={password}
       />
 +     {error && <ErrorMessage>{(error as Error).message}</ErrorMessage>}
       <button
 +       disabled={dispatching}
         onClick={() => flux.dispatch('auth/login', email, password)}
-        type="button"
+        type='button'
       >
 -       Login
 +       {dispatching ? 'Authenticating...' : 'Login'}
@@ -384,22 +384,22 @@ export default function AddressForm() {
   return (
     <div>
       <TextInput
-        label="Address"
+        label='Address'
         onChange={(value) => flux.dispatch('AddressForm/setAddress', value)}
         value={address}
       />
       <TextInput
-        label="City"
+        label='City'
         onChange={(value) => flux.dispatch('AddressForm/setCity', value)}
         value={city}
       />
       <TextInput
-        label="State"
+        label='State'
         onChange={(value) => flux.dispatch('AddressForm/setState', value)}
         value={state}
       />
       <TextInput
-        label="Zip Code"
+        label='Zip Code'
         onChange={(value) => flux.dispatch('AddressForm/setZip', value)}
         value={zip}
       />
@@ -421,6 +421,30 @@ export default function AddressForm() {
 #### Disadvantages
 
 1. More boilerplate.
+
+#### Dependencies
+
+By default, when you call `flux.useStore`, the supplied side-effect runners are only registered initially. This means that if you re-render the component, the old side-effect runners will be used. This is usually fine unless you are accessing variables from the component-level scope inside of your runners. If you are doing this, then you will need to supply as the fourth argument to `flux.useStore` a list of variables that you are accessing from within your runners. This list works exactly like [`React.useEffect`'s dependency list](https://reactjs.org/docs/hooks-effect.html#tip-optimizing-performance-by-skipping-effects).
+
+```(ts)
+export default function ScoreBoard() {
+  const multiplier = flux.game.selectState('multiplier');
+  const { score } = flux.useStore(
+    'ScoreBoard',
+    {
+      score: 0
+    },
+    {
+      addPoints: (dispatch, points) => state => ({
+        score: state.score + multiplier * points
+      })
+    },
+    [multiplier]
+  );
+
+  return <span>Your score is {score}.</span>;
+}
+```
 
 ### Waiting for Events
 
