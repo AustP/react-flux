@@ -24,7 +24,7 @@ type StatusObject = {
   payload: unknown[];
 };
 
-let fluxIsReducing: Promise<void> | null = null;
+let fluxIsReducing: Promise<StatusObject> | null = null;
 
 // the options for the system
 const options = {
@@ -64,31 +64,14 @@ const assertEventFormat = (event: string): void => {
 };
 
 /**
- * Dispatch the flux/error event
- */
-const dispatchError = (
-  event: string,
-  error: Error,
-  ...payload: unknown[]
-): Promise<void> =>
-  new Promise((resolve) => {
-    // wrap in a timeout so the error will be logged after the current event
-    window.setTimeout(async () => {
-      await dispatchWhenAllowed(null, 'flux/error', event, error, ...payload);
-      setEventStatus('flux/error', { error });
-      resolve();
-    }, 0);
-  });
-
-/**
  * Dispatched the event immediately
  */
 const dispatchImmediately = (
   parentLogger: EventLogger | null,
   event: string,
   ...payload: unknown[]
-): Promise<void> => {
-  const promise = new Promise<void>(async (resolve) => {
+): Promise<StatusObject> => {
+  const promise = new Promise<StatusObject>(async (resolve) => {
     setEventStatus(event, {
       count: selectStatus(event).count + 1,
       dispatching: true,
@@ -187,12 +170,8 @@ const dispatchImmediately = (
           logger.logErrorReducing(lastStore.namespace, lastStore.selectState());
         }
 
-        // there was an error, dispatch an error event about it
-        // and update the event status to include the error
-        if (event !== 'flux/error') {
-          setEventStatus(event, { error });
-          dispatchError(event, error, ...payload);
-        }
+        // there was an error, update the event status to include the error
+        setEventStatus(event, { error });
       }
 
       fluxIsReducing = null;
@@ -204,12 +183,8 @@ const dispatchImmediately = (
         );
       }
 
-      // there was an error, dispatch an error event about it
-      // and update the event status to include the error
-      if (event !== 'flux/error') {
-        setEventStatus(event, { error });
-        dispatchError(event, error, ...payload);
-      }
+      // there was an error, update the event status to include the error
+      setEventStatus(event, { error });
     }
 
     if (logger) {
@@ -217,7 +192,7 @@ const dispatchImmediately = (
     }
 
     setEventStatus(event, { dispatching: false });
-    resolve();
+    resolve(selectStatus(event));
   });
 
   return promise;
@@ -231,7 +206,7 @@ const dispatchWhenAllowed = async (
   parentLogger: EventLogger | null,
   event: string,
   ...payload: unknown[]
-): Promise<void> => {
+): Promise<StatusObject> => {
   // fluxIsReducing will either be a promise (so we can await it) or null
   // doing this allows us to piggy-back on JS' queue system
   if (fluxIsReducing) {
@@ -393,4 +368,4 @@ export default Object.create(stores, {
 };
 
 type StoreInterface<T extends State> = Store<T>;
-export { Flux, StoreInterface as Store };
+export { Flux, StatusObject, StoreInterface as Store };

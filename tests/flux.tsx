@@ -115,34 +115,32 @@ describe('flux', () => {
       });
     });
 
-    test('that error during side-effects', () => {
-      act(() => {
-        let status = flux.selectStatus('warcamp2/surrenderImmediately');
-        expect(status.error).toBe(null);
+    test('that error during side-effects', async () => {
+      let status = flux.selectStatus('warcamp2/surrenderImmediately');
+      expect(status.error).toBe(null);
 
-        flux.dispatch('warcamp2/surrenderImmediately');
-        status = flux.selectStatus('warcamp2/surrenderImmediately');
-        expect((status.error as Error).message).toBe(
-          'We will never surrender!',
-        );
-      });
+      flux.dispatch('warcamp2/surrenderImmediately');
+      status = flux.selectStatus('warcamp2/surrenderImmediately');
+      expect((status.error as Error).message).toBe('We will never surrender!');
+
+      status = await flux.dispatch('warcamp2/surrenderImmediately');
+      expect((status.error as Error).message).toBe('We will never surrender!');
     });
 
     test('that error during reduction', async () => {
-      await act(async () => {
-        let status = flux.selectStatus('warcamp2/surrender');
-        expect(status.error).toBe(null);
+      let status = flux.selectStatus('warcamp2/surrender');
+      expect(status.error).toBe(null);
 
-        flux.dispatch('warcamp2/surrender');
-        status = flux.selectStatus('warcamp2/surrender');
-        expect(status.error).toBe(null);
+      flux.dispatch('warcamp2/surrender');
+      status = flux.selectStatus('warcamp2/surrender');
+      expect(status.error).toBe(null);
 
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        status = flux.selectStatus('warcamp2/surrender');
-        expect((status.error as Error).message).toBe(
-          'We will never surrender!',
-        );
-      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      status = flux.selectStatus('warcamp2/surrender');
+      expect((status.error as Error).message).toBe('We will never surrender!');
+
+      status = await flux.dispatch('warcamp2/surrender');
+      expect((status.error as Error).message).toBe('We will never surrender!');
     });
 
     test('contain the latest payload information', async () => {

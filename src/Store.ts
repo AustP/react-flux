@@ -1,6 +1,10 @@
+import { StatusObject } from './flux';
 import stateManager, { State } from './stateManager';
 
-type DispatchCallback = (event: string, ...payload: any[]) => Promise<void>;
+type DispatchCallback = (
+  event: string,
+  ...payload: any[]
+) => Promise<StatusObject>;
 type Reducer<T extends State> = (state: T) => State;
 type Selector<T extends State> = (state: T, ...args: any[]) => unknown;
 type SideEffect<T extends State> = {

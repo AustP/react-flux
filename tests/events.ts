@@ -112,23 +112,15 @@ afterAll(() => {
 describe('events', () => {
   describe('error handling', () => {
     test('it handles errors during side-effects', async () => {
-      await flux.dispatch('warcamp/surrenderImmediately');
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(flux.selectStatus('flux/error').payload[0]).toEqual(
-        'warcamp/surrenderImmediately',
-      );
-      expect((flux.selectStatus('flux/error').error as Error).message).toEqual(
+      const status = await flux.dispatch('warcamp/surrenderImmediately');
+      expect((status.error as Error).message).toEqual(
         'We will never surrender!',
       );
     });
 
     test('it handles errors during reduction', async () => {
-      await flux.dispatch('warcamp/surrender');
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(flux.selectStatus('flux/error').payload[0]).toEqual(
-        'warcamp/surrender',
-      );
-      expect((flux.selectStatus('flux/error').error as Error).message).toEqual(
+      const status = await flux.dispatch('warcamp/surrender');
+      expect((status.error as Error).message).toEqual(
         'We will never surrender!',
       );
     });

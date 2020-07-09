@@ -252,6 +252,21 @@ export default function LoginForm() {
 }
 ```
 
+#### Waiting for Dispatched Events
+
+Any time you dispatch an event, you can await it. This is useful if you need to make sure a certain event fully finishes (and the state is reduced) before continuing on. The value that is resolved will be the event's current status. (See [Getting an Event's Status](#getting-an-events-status)). This can be helpful to test if there was an error while dispatching the event.
+
+```(ts)
+const { error } = await flux.dispatch(
+  'auth/login',
+  'kaladin@windrunners.com',
+  'storminglighteyes'
+);
+if (error) {
+  displayError(error);
+}
+```
+
 ### Getting an Event's Status
 
 In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
@@ -294,16 +309,6 @@ Now, if there is an error, we log the event's latest payload and display that er
 
 **NOTE: The `count` key gives the number of times the event has been dispatched.**  
 **NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
-
-Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
-
-```(ts)
-store.register('flux/error', (event, error, ...payload)) {
-  if (event === 'auth/login') {
-    displayError(error);
-  }
-}
-```
 
 ### Adding a Selector
 
