@@ -8,13 +8,13 @@ type DispatchCallback = (
 type Reducer<T extends State> = (state: T) => State;
 type Selector<T extends State> = (state: T, ...args: any[]) => unknown;
 type SideEffect<T extends State> = {
-  promise: Promise<Reducer<T> | void>;
+  promise: Promise<Reducer<T> | StatusObject | void>;
   store: Store<T>;
 };
 type SideEffectRunner<T extends State> = (
   dispatch: DispatchCallback,
   ...payload: any[]
-) => Promise<Reducer<T> | void> | Reducer<T> | void;
+) => Promise<Reducer<T> | StatusObject | void> | Reducer<T> | void;
 type UnregisterCallback = () => void;
 
 type HasUndefined<T> = undefined extends T ? true : false;

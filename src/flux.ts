@@ -11,7 +11,7 @@ import Store, {
 } from './Store';
 
 type ResolvedSideEffect<T extends State> = {
-  reducer: Reducer<T> | void;
+  reducer: Reducer<T> | StatusObject | void;
   store: Store<T>;
 };
 type SideEffectRunnerObject<T extends State> = {
@@ -140,6 +140,10 @@ const dispatchImmediately = (
           sideEffects.forEach(({ promise, store }, index) =>
             promise
               .then((reducer) => {
+                if (isStatusObject(reducer)) {
+                  reducer = undefined;
+                }
+
                 result[index] = { reducer, store };
                 if (--remaining === 0) {
                   resolve(result);
@@ -262,6 +266,23 @@ const errorfy = (error: unknown): Error => {
   } else {
     return new Error(JSON.stringify(error));
   }
+};
+
+/**
+ * Checks if the supplied object is an event status object
+ */
+const isStatusObject = (object: any): object is StatusObject => {
+  if (
+    object &&
+    'dispatched' in object &&
+    'dispatching' in object &&
+    'error' in object &&
+    'payload' in object
+  ) {
+    return true;
+  }
+
+  return false;
 };
 
 /**
