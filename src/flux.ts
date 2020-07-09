@@ -18,9 +18,9 @@ type SideEffectRunnerObject<T extends State> = {
   [event: string]: SideEffectRunner<T>;
 };
 type StatusObject = {
-  count: number;
+  dispatched: boolean;
   dispatching: boolean;
-  error: unknown;
+  error: Error | null;
   payload: unknown[];
 };
 
@@ -64,6 +64,23 @@ const assertEventFormat = (event: string): void => {
 };
 
 /**
+ * Dispatch the flux/error event
+ */
+const dispatchError = (
+  event: string,
+  error: Error,
+  ...payload: unknown[]
+): Promise<void> =>
+  new Promise((resolve) => {
+    // wrap in a timeout so the error will be logged after the current event
+    window.setTimeout(async () => {
+      await dispatchWhenAllowed(null, 'flux/error', event, error, ...payload);
+      setEventStatus('flux/error', { error });
+      resolve();
+    }, 0);
+  });
+
+/**
  * Dispatched the event immediately
  */
 const dispatchImmediately = (
@@ -73,7 +90,7 @@ const dispatchImmediately = (
 ): Promise<StatusObject> => {
   const promise = new Promise<StatusObject>(async (resolve) => {
     setEventStatus(event, {
-      count: selectStatus(event).count + 1,
+      dispatched: false,
       dispatching: true,
       error: null,
       payload,
@@ -170,8 +187,15 @@ const dispatchImmediately = (
           logger.logErrorReducing(lastStore.namespace, lastStore.selectState());
         }
 
-        // there was an error, update the event status to include the error
+        error = errorfy(error);
         setEventStatus(event, { error });
+
+        // there was an error, dispatch an error event about it
+        // and update the event status to include the error
+        if (event !== 'flux/error') {
+          setEventStatus(event, { error });
+          dispatchError(event, error, ...payload);
+        }
       }
 
       fluxIsReducing = null;
@@ -183,15 +207,25 @@ const dispatchImmediately = (
         );
       }
 
-      // there was an error, update the event status to include the error
+      error = errorfy(error);
       setEventStatus(event, { error });
+
+      // there was an error, dispatch an error event about it
+      // and update the event status to include the error
+      if (event !== 'flux/error') {
+        setEventStatus(event, { error });
+        dispatchError(event, error, ...payload);
+      }
     }
 
     if (logger) {
       logger.resolve();
     }
 
-    setEventStatus(event, { dispatching: false });
+    setEventStatus(event, { dispatched: true, dispatching: false });
+    // on the next tick, mark this event as no longer dispatched
+    setTimeout(() => setEventStatus(event, { dispatched: false }), 0);
+
     resolve(selectStatus(event));
   });
 
@@ -215,6 +249,19 @@ const dispatchWhenAllowed = async (
   }
 
   return dispatchImmediately(parentLogger, event, ...payload);
+};
+
+/**
+ * Makes sure the given error is an Error object.
+ */
+const errorfy = (error: unknown): Error => {
+  if (error && (error as any).message) {
+    return error as Error;
+  } else if (typeof error === 'string') {
+    return new Error(error);
+  } else {
+    return new Error(JSON.stringify(error));
+  }
 };
 
 /**
@@ -243,7 +290,7 @@ const getEventStatus = (
 
   if (!state) {
     return {
-      count: 0,
+      dispatched: false,
       dispatching: false,
       error: null,
       payload: [],

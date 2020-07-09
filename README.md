@@ -292,7 +292,7 @@ In our applications, we often want to display loading indicators while waiting f
         type='password'
         value={password}
       />
-+     {error && <ErrorMessage>{(error as Error).message}</ErrorMessage>}
++     {error && <ErrorMessage>{error!.message}</ErrorMessage>}
       <button
 +       disabled={dispatching}
         onClick={() => flux.dispatch('auth/login', email, password)}

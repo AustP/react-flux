@@ -58,7 +58,7 @@ describe('flux', () => {
     test("that aren't in the system", () => {
       const status = flux.selectStatus('nonexistent/event');
       expect(status).toEqual({
-        count: 0,
+        dispatched: false,
         dispatching: false,
         error: null,
         payload: [],
@@ -68,7 +68,7 @@ describe('flux', () => {
     test('that are in the system', () => {
       const status = flux.selectStatus('warcamp2/addBridgeCrew');
       expect(status).toEqual({
-        count: 0,
+        dispatched: false,
         dispatching: false,
         error: null,
         payload: [],
@@ -121,10 +121,10 @@ describe('flux', () => {
 
       flux.dispatch('warcamp2/surrenderImmediately');
       status = flux.selectStatus('warcamp2/surrenderImmediately');
-      expect((status.error as Error).message).toBe('We will never surrender!');
+      expect(status.error!.message).toBe('We will never surrender!');
 
       status = await flux.dispatch('warcamp2/surrenderImmediately');
-      expect((status.error as Error).message).toBe('We will never surrender!');
+      expect(status.error!.message).toBe('We will never surrender!');
     });
 
     test('that error during reduction', async () => {
@@ -137,10 +137,10 @@ describe('flux', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 0));
       status = flux.selectStatus('warcamp2/surrender');
-      expect((status.error as Error).message).toBe('We will never surrender!');
+      expect(status.error!.message).toBe('We will never surrender!');
 
       status = await flux.dispatch('warcamp2/surrender');
-      expect((status.error as Error).message).toBe('We will never surrender!');
+      expect(status.error!.message).toBe('We will never surrender!');
     });
 
     test('contain the latest payload information', async () => {
@@ -164,22 +164,17 @@ describe('flux', () => {
       });
     });
 
-    test('contain the number of times an event has been dispatched', async () => {
+    test('contain whether or not they were just dispatched', async () => {
       await act(async () => {
         let status = flux.selectStatus('warcamp2/fightForGemheart');
-        expect(status.count).toEqual(0);
+        expect(status.dispatched).toEqual(false);
 
-        flux.dispatch('warcamp2/fightForGemheart');
-        status = flux.selectStatus('warcamp2/fightForGemheart');
-        expect(status.count).toEqual(1);
+        status = await flux.dispatch('warcamp2/fightForGemheart');
+        expect(status.dispatched).toEqual(true);
 
-        flux.dispatch('warcamp2/fightForGemheart');
+        await new Promise((resolve) => setTimeout(resolve, 0));
         status = flux.selectStatus('warcamp2/fightForGemheart');
-        expect(status.count).toEqual(2);
-
-        flux.dispatch('warcamp2/fightForGemheart');
-        status = flux.selectStatus('warcamp2/fightForGemheart');
-        expect(status.count).toEqual(3);
+        expect(status.dispatched).toEqual(false);
       });
     });
   });
