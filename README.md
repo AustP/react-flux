@@ -310,6 +310,16 @@ Now, if there is an error, we log the event's latest payload and display that er
 **NOTE: The `count` key gives the number of times the event has been dispatched.**  
 **NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
 
+Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
+
+```(ts)
+store.register('flux/error', (event, error, ...payload)) {
+  if (event === 'auth/login') {
+    displayError(error);
+  }
+}
+```
+
 ### Adding a Selector
 
 When storing state in a store, we often want to prevent duplication of information. Additionally, we may want to perform memoization to prevent expensive function calls. This is where selectors enter the picture. In our authentication system, the token that we are storing is a [JWT](https://jwt.io/introduction/). For this example, assume that our JWT has the user's name and ID as part of it's payload. Let us now add selectors to our store to make it so we can easily access the user's name:
