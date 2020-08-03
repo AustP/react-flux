@@ -275,7 +275,7 @@ In our applications, we often want to display loading indicators while waiting f
   export default function LoginForm() {
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
-+   const { count, dispatching, error, payload } = flux.useStatus('auth/login');
++   const { dispatched, dispatching, error, payload } = flux.useStatus('auth/login');
 +
 +   if (error) {
 +     console.log(payload);
@@ -307,7 +307,7 @@ In our applications, we often want to display loading indicators while waiting f
 
 Now, if there is an error, we log the event's latest payload and display that error the user. Additionally, while the event is dispatching, we disable the button and change it's text to say `Authenticating...`. Not too shabby for 8 additions and 1 deletion.
 
-**NOTE: The `count` key gives the number of times the event has been dispatched.**  
+**NOTE: The `dispatched` key will be true on the render that the event finishes dispatching.**  
 **NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
 
 Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
