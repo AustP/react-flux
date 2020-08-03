@@ -365,7 +365,7 @@ Now that we have a reference to the store, we can use the two methods available 
 
 ```(tsx)
 export default function UserName() {
-  const name = flux.useState('tokenPayload', 'name');
+  const name = flux.auth.useState('tokenPayload', 'name');
 
   return <span>{name}</span>;
 }
@@ -468,7 +468,7 @@ Every call to `flux.dispatch` (or to the `dispatch` parameter passed to side-eff
 ```(ts)
 await flux.dispatch('auth/login', 'kaladin@windrunners.com', 'storminglighteyes');
 
-const name = flux.selectState('tokenPayload', 'name');
+const name = flux.auth.selectState('tokenPayload', 'name');
 ```
 
 ### Scheduling Future Dispatches
