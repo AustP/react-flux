@@ -1,7 +1,19 @@
+type ArrayDiff = { additions?: unknown[]; subtractions?: unknown[] };
 type Entry = {
   args: unknown[];
   fn: string;
 };
+type ObjectDiff =
+  | {
+      additions: UnknownObject;
+      changes?: UnknownObject;
+      subtractions?: UnknownObject;
+    }
+  | {
+      additions?: UnknownObject;
+      changes?: UnknownObject;
+      subtractions: UnknownObject;
+    };
 type UnknownObject = { [key: string]: unknown };
 
 // keep track of the order that the logs come in
@@ -13,19 +25,52 @@ let order = 0;
 const getArrayDiff = (
   from: unknown[],
   to: unknown[],
-): unknown[] | undefined => {
-  const result: unknown[] = [];
-  for (const index in to) {
-    if (to.hasOwnProperty(index)) {
-      const diff = getDiff(from[index], to[index]);
-      if (diff !== undefined) {
-        result.push(diff);
+): ArrayDiff | unknown[] | undefined => {
+  const result: ArrayDiff = {
+    additions: [],
+    subtractions: [],
+  };
+
+  if (from.length > to.length) {
+    for (const index in from) {
+      if (from.hasOwnProperty(index)) {
+        if (to.hasOwnProperty(index)) {
+          const diff = getDiff(from[index], to[index]);
+          if (diff !== undefined) {
+            result.additions!.push(to[index]);
+            result.subtractions!.push(from[index]);
+          }
+        } else {
+          result.subtractions!.push(from[index]);
+        }
+      }
+    }
+  } else {
+    for (const index in to) {
+      if (to.hasOwnProperty(index)) {
+        if (from.hasOwnProperty(index)) {
+          const diff = getDiff(from[index], to[index]);
+          if (diff !== undefined) {
+            result.additions!.push(to[index]);
+            result.subtractions!.push(from[index]);
+          }
+        } else {
+          result.additions!.push(to[index]);
+        }
       }
     }
   }
 
-  if (result.length === 0) {
-    return undefined;
+  if (result.additions!.length === 0) {
+    delete result.additions;
+  }
+
+  if (result.subtractions!.length === 0) {
+    if (result.additions) {
+      return result.additions;
+    } else {
+      return undefined;
+    }
   }
 
   return result;
@@ -52,14 +97,45 @@ const getDiff = (from: any, to: any): any => {
 const getObjectDiff = (
   from: UnknownObject,
   to: UnknownObject,
-): UnknownObject | undefined => {
-  const result: UnknownObject = {};
-  for (const key in to) {
-    if (to.hasOwnProperty(key)) {
-      const diff = getDiff(from[key], to[key]);
-      if (diff !== undefined) {
-        result[key] = diff;
+): ObjectDiff | UnknownObject | undefined => {
+  const result: ObjectDiff = {
+    additions: {},
+    changes: {},
+    subtractions: {},
+  };
+
+  for (const key in from) {
+    if (from.hasOwnProperty(key)) {
+      if (to.hasOwnProperty(key)) {
+        const diff = getDiff(from[key], to[key]);
+        if (diff !== undefined) {
+          result.changes![key] = diff;
+        }
+      } else {
+        result.subtractions![key] = from[key];
       }
+    }
+  }
+
+  for (const key in to) {
+    if (to.hasOwnProperty(key) && !from.hasOwnProperty(key)) {
+      result.additions![key] = to[key];
+    }
+  }
+
+  if (Object.keys(result.additions!).length === 0) {
+    delete result.additions;
+  }
+
+  if (Object.keys(result.changes!).length === 0) {
+    delete result.changes;
+  }
+
+  if (Object.keys(result.subtractions!).length === 0) {
+    if (result.changes && !result.additions) {
+      return result.changes;
+    } else {
+      delete result.subtractions;
     }
   }
 
@@ -211,15 +287,11 @@ export default class EventLogger {
    */
   logDiff(namespace: string, from?: object, to?: object): void {
     const diff = getDiff(from, to);
-    if (diff === undefined || !Object.keys(diff).length) {
+    if (diff === undefined) {
       return this.logNoChanges(namespace, from);
     }
 
-    this.addEntry(
-      'groupCollapsed',
-      `Changes for ${namespace}`,
-      getDiff(from, to),
-    );
+    this.addEntry('groupCollapsed', `Changes for ${namespace}`, diff);
     this.addEntry('log', 'Old State', from);
     this.addEntry('log', 'New State', to);
     this.addEntry('groupEnd');

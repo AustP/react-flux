@@ -14,6 +14,7 @@ declare global {
 }
 
 const TIMEOUT_BUILD_BARRACKS = 400;
+const TIMEOUT_DESTROY_BARRACKS = 100;
 const TIMEOUT_FEED_SOLDIERS = 100;
 const TIMEOUT_FIGHT_FOR_GEMHEART = 300;
 const TIMEOUT_RECRUIT_SOLDIERS = 200;
@@ -58,6 +59,18 @@ beforeAll(() => {
     // feed and pay the soldiers at the same time
     dispatch('warcamp/feedSoldiers');
     dispatch('warcamp/paySoldiers');
+  });
+
+  warcampStore.register('warcamp/destroyBarracks', async () => {
+    await new Promise((resolve) =>
+      setTimeout(resolve, TIMEOUT_DESTROY_BARRACKS),
+    );
+
+    return (state) => ({
+      ...state,
+      barracksBuilt: false,
+      buildings: state.buildings.filter((building) => building !== 'barracks'),
+    });
   });
 
   warcampStore.register('warcamp/feedSoldiers', async () => {
@@ -198,16 +211,39 @@ describe('events', () => {
         (window.console.groupCollapsed as jest.Mock).mock.calls[1][0],
       ).toBe('warcamp/buildBarracks');
       expect(
-        (window.console.groupCollapsed as jest.Mock).mock.calls[2][1],
+        (window.console.groupCollapsed as jest.Mock).mock.calls[2][0],
+      ).toBe('Changes for warcamp');
+      expect(
+        (window.console.groupCollapsed as jest.Mock).mock.calls[3][0],
+      ).toBe('Changes for warcamp');
+    });
+
+    test('logs the diffs between state changes', async () => {
+      await new Promise((resolve) =>
+        setTimeout(resolve, TIMEOUT_FEED_SOLDIERS * 4),
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, TIMEOUT_RECRUIT_SOLDIERS),
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, TIMEOUT_BUILD_BARRACKS),
+      );
+
+      await flux.dispatch('warcamp/destroyBarracks');
+      await flux.dispatch('warcamp/buildBarracks');
+
+      expect(
+        (window.console.groupCollapsed as jest.Mock).mock.calls[1][1],
       ).toEqual({
-        barracksBuilt: true,
-        buildings: ['barracks'],
+        barracksBuilt: false,
+        buildings: { subtractions: ['barracks', 'barracks'] },
       });
+
       expect(
         (window.console.groupCollapsed as jest.Mock).mock.calls[3][1],
       ).toEqual({
-        barracksBuilt: false,
-        soldiers: 11800,
+        barracksBuilt: true,
+        buildings: ['barracks'],
       });
     });
   });
