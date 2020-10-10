@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import stateManager, { State } from './stateManager';
 import EventLogger from './EventLogger';
@@ -10,21 +10,21 @@ import Store, {
   UnregisterCallback,
 } from './Store';
 
-type ResolvedSideEffect<T extends State> = {
-  reducer: Reducer<T> | StatusObject | void;
-  store: Store<T>;
-};
-type SideEffectRunnerObject<T extends State> = {
-  [event: string]: SideEffectRunner<T>;
-};
-type StatusObject = {
+type EventObject = {
   dispatched: boolean;
   dispatching: boolean;
   error: Error | null;
   payload: unknown[];
 };
+type ResolvedSideEffect<T extends State> = {
+  reducer: Reducer<T> | EventObject | void;
+  store: Store<T>;
+};
+type SideEffectRunnerObject<T extends State> = {
+  [event: string]: SideEffectRunner<T>;
+};
 
-let fluxIsReducing: Promise<StatusObject> | null = null;
+let fluxIsReducing: Promise<EventObject> | null = null;
 
 // the options for the system
 const options = {
@@ -87,8 +87,8 @@ const dispatchImmediately = (
   parentLogger: EventLogger | null,
   event: string,
   ...payload: unknown[]
-): Promise<StatusObject> => {
-  const promise = new Promise<StatusObject>(async (resolve) => {
+): Promise<EventObject> => {
+  const promise = new Promise<EventObject>(async (resolve) => {
     setEventStatus(event, {
       dispatched: false,
       dispatching: true,
@@ -140,7 +140,7 @@ const dispatchImmediately = (
           sideEffects.forEach(({ promise, store }, index) =>
             promise
               .then((reducer) => {
-                if (isStatusObject(reducer)) {
+                if (isEventObject(reducer)) {
                   reducer = undefined;
                 }
 
@@ -230,7 +230,7 @@ const dispatchImmediately = (
     // on the next tick, mark this event as no longer dispatched
     setTimeout(() => setEventStatus(event, { dispatched: false }), 0);
 
-    resolve(selectStatus(event));
+    resolve(selectEvent(event));
   });
 
   return promise;
@@ -244,7 +244,7 @@ const dispatchWhenAllowed = async (
   parentLogger: EventLogger | null,
   event: string,
   ...payload: unknown[]
-): Promise<StatusObject> => {
+): Promise<EventObject> => {
   // fluxIsReducing will either be a promise (so we can await it) or null
   // doing this allows us to piggy-back on JS' queue system
   if (fluxIsReducing) {
@@ -271,7 +271,7 @@ const errorfy = (error: unknown): Error => {
 /**
  * Checks if the supplied object is an event status object
  */
-const isStatusObject = (object: any): object is StatusObject => {
+const isEventObject = (object: any): object is EventObject => {
   if (
     object &&
     'dispatched' in object &&
@@ -299,7 +299,7 @@ const getEventNamespace = (event: string): string => {
 const getEventStatus = (
   getStateFn: 'selectState' | 'useState',
   event: string,
-): StatusObject => {
+): EventObject => {
   assertEventFormat(event);
 
   let state: State | undefined;
@@ -317,7 +317,7 @@ const getEventStatus = (
       payload: [],
     };
   } else {
-    return state as StatusObject;
+    return state as EventObject;
   }
 };
 
@@ -331,8 +331,21 @@ const isStoreAdded = (namespace: string): boolean =>
  * Accesses the status of the event. This method call does not register for
  * updates so the value could be stale
  */
-const selectStatus = (event: string): StatusObject =>
+const selectEvent = (event: string): EventObject =>
   getEventStatus('selectState', event);
+
+/**
+ * @deprecated
+ * Use selectEvent instead.
+ *
+ * Accesses the status of the event. This method call does not register for
+ * updates so the value could be stale
+ */
+const selectStatus = (event: string): EventObject => {
+  // tslint:disable-next-line:no-console
+  console.warn('selectStatus is deprecated. use selectEvent instead.');
+  return selectEvent(event);
+};
 
 /**
  * Sets the event status in the state manager
@@ -357,11 +370,84 @@ const setOption = (
 ): void => void ((options[option] as boolean | number) = value);
 
 /**
+ * Executes the side-effect whenever the given event is dispatched.
+ * The side-effect is executed with the rest of the side-effects for the event
+ */
+const useDispatchedEvent = (
+  event: string,
+  sideEffect: (...payload: any[]) => Promise<void> | void,
+  dependencies: any[] = [],
+): void => {
+  // keep the side-effects in a ref so we aren't constantly unregistering
+  const ref = useDependentRef(sideEffect, dependencies);
+
+  // wrap our register call in useEffect to prevent memory leaks
+  useEffect(() => {
+    const namespace = getEventNamespace(event);
+    return stores[namespace].register(event, async (dispatch, ...payload) => {
+      // we will await the call to the side-effect because we want this to be
+      // blocking before state reductions take place
+      // but we don't want to be able to change the store's state from the
+      // side-effect so we purposefully don't return the result
+      await ref.current(...payload);
+    });
+  }, [event, ref.current]);
+};
+
+/**
+ * Creates a ref that updates whenever one of the dependencies changes
+ */
+const useDependentRef = <T>(
+  value: T,
+  dependencies: any[],
+): React.MutableRefObject<T> => {
+  // keep the side-effects in a ref so we aren't constantly unregistering
+  const ref = useRef(value);
+  useEffect(() => void (ref.current = value), dependencies);
+
+  return ref;
+};
+
+/**
+ * Executes the side-effect when the event resolves. i.e. finishes reducing
+ */
+const useResolvedEvent = (
+  event: string,
+  sideEffect: (status: EventObject) => void,
+  dependencies: any[] = [],
+) => {
+  // keep the side-effects in a ref so we aren't constantly unregistering
+  const ref = useDependentRef(sideEffect, dependencies);
+
+  // wrap our call to the side-effect in a useEffect because we only want it
+  // to be called once when the event is dispatched
+  const { dispatched } = useEvent(event);
+  useEffect(() => {
+    if (dispatched) {
+      ref.current(selectEvent(event));
+    }
+  }, [dispatched, event, ref.current]);
+};
+
+/**
  * Accesses the status of the event. This method call registers for updates so
  * the value is always up-to-date
  */
-const useStatus = (event: string): StatusObject =>
+const useEvent = (event: string): EventObject =>
   getEventStatus('useState', event);
+
+/**
+ * @deprecated
+ * Use useEvent instead.
+ *
+ * Accesses the status of the event. This method call registers for updates so
+ * the value is always up-to-date
+ */
+const useStatus = (event: string): EventObject => {
+  // tslint:disable-next-line:no-console
+  console.warn('useStatus is deprecated. use useEvent instead.');
+  return useEvent(event);
+};
 
 /**
  * Setups up a store from within a component
@@ -378,23 +464,26 @@ const useStore = <T extends State>(
     addStore(namespace, initialState);
   }
 
+  // keep the side-effect runners in a ref so we aren't constantly unregistering
+  const ref = useDependentRef(sideEffectRunners, dependencies);
+
   // wrap our registration in a useEffect so when the component unmounts,
   // we won't have any memory leaks
   useEffect(() => {
     const unregisterCallbacks: UnregisterCallback[] = [];
-    for (const event in sideEffectRunners) {
-      if (sideEffectRunners.hasOwnProperty(event)) {
+    for (const event in ref.current) {
+      if (ref.current.hasOwnProperty(event)) {
         unregisterCallbacks.push(
           stores[namespace].register(
             `${namespace}/${event}`,
-            sideEffectRunners[event],
+            ref.current[event],
           ),
         );
       }
     }
 
     return () => unregisterCallbacks.forEach((unregister) => unregister());
-  }, [namespace].concat(dependencies));
+  }, [namespace, ref.current]);
 
   // use useState to register this hook to update on state changes
   const state = stores[namespace].useState();
@@ -411,8 +500,12 @@ declare global {
     readonly [Symbol.iterator]: () => Iterator<Store<State>>;
     readonly addStore: typeof addStore;
     readonly dispatch: DispatchCallback;
+    readonly selectEvent: typeof selectEvent;
     readonly selectStatus: typeof selectStatus;
     readonly setOption: typeof setOption;
+    readonly useDispatchedEvent: typeof useDispatchedEvent;
+    readonly useEvent: typeof useEvent;
+    readonly useResolvedEvent: typeof useResolvedEvent;
     readonly useStatus: typeof useStatus;
     readonly useStore: typeof useStore;
   }
@@ -427,8 +520,12 @@ export default Object.create(stores, {
   dispatch: getPropertyDescriptor((event: string, ...payload: any[]) =>
     dispatchWhenAllowed(null, event, ...payload),
   ),
+  selectEvent: getPropertyDescriptor(selectEvent),
   selectStatus: getPropertyDescriptor(selectStatus),
   setOption: getPropertyDescriptor(setOption),
+  useDispatchedEvent: getPropertyDescriptor(useDispatchedEvent),
+  useEvent: getPropertyDescriptor(useEvent),
+  useResolvedEvent: getPropertyDescriptor(useResolvedEvent),
   useStatus: getPropertyDescriptor(useStatus),
   useStore: getPropertyDescriptor(useStore),
 }) as Flux & {
@@ -436,4 +533,4 @@ export default Object.create(stores, {
 };
 
 type StoreInterface<T extends State> = Store<T>;
-export { Flux, StatusObject, StoreInterface as Store };
+export { Flux, EventObject, StoreInterface as Store };

@@ -129,10 +129,10 @@ describe('events', () => {
       expect(status.error!.message).toEqual('We will never surrender!');
 
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(flux.selectStatus('flux/error').payload[0]).toEqual(
+      expect(flux.selectEvent('flux/error').payload[0]).toEqual(
         'warcamp/surrenderImmediately',
       );
-      expect(flux.selectStatus('flux/error').error!.message).toEqual(
+      expect(flux.selectEvent('flux/error').error!.message).toEqual(
         'We will never surrender!',
       );
     });
@@ -142,10 +142,10 @@ describe('events', () => {
       expect(status.error!.message).toEqual('We will never surrender!');
 
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(flux.selectStatus('flux/error').payload[0]).toEqual(
+      expect(flux.selectEvent('flux/error').payload[0]).toEqual(
         'warcamp/surrender',
       );
-      expect(flux.selectStatus('flux/error').error!.message).toEqual(
+      expect(flux.selectEvent('flux/error').error!.message).toEqual(
         'We will never surrender!',
       );
     });
@@ -280,16 +280,14 @@ describe('events', () => {
       await flux.dispatch('warcamp/recruitSoldiers');
       expect(flux.warcamp.selectState('barracksBuilt')).toBe(false);
       expect(flux.warcamp.selectState('soldiers')).toBe(11900);
-      expect(flux.selectStatus('warcamp/buildBarracks').dispatching).toBe(true);
+      expect(flux.selectEvent('warcamp/buildBarracks').dispatching).toBe(true);
 
       await new Promise((resolve) =>
         setTimeout(resolve, TIMEOUT_BUILD_BARRACKS),
       );
       expect(flux.warcamp.selectState('barracksBuilt')).toBe(true);
       expect(flux.warcamp.selectState('soldiers')).toBe(11900);
-      expect(flux.selectStatus('warcamp/buildBarracks').dispatching).toBe(
-        false,
-      );
+      expect(flux.selectEvent('warcamp/buildBarracks').dispatching).toBe(false);
     });
 
     test('it happens before events are dispatched from reducers', async () => {
@@ -304,16 +302,16 @@ describe('events', () => {
 
       await flux.dispatch('warcamp/fightForGemheart');
       expect(flux.warcamp.selectState('gemheartCaptured')).toBe(true);
-      expect(flux.selectStatus('warcamp/celebrate').dispatching).toBe(true);
+      expect(flux.selectEvent('warcamp/celebrate').dispatching).toBe(true);
 
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(flux.selectStatus('warcamp/celebrate').dispatching).toBe(false);
-      expect(flux.selectStatus('warcamp/feedSoldiers').dispatching).toBe(true);
+      expect(flux.selectEvent('warcamp/celebrate').dispatching).toBe(false);
+      expect(flux.selectEvent('warcamp/feedSoldiers').dispatching).toBe(true);
 
       await new Promise((resolve) =>
         setTimeout(resolve, TIMEOUT_FEED_SOLDIERS),
       );
-      expect(flux.selectStatus('warcamp/feedSoldiers').dispatching).toBe(false);
+      expect(flux.selectEvent('warcamp/feedSoldiers').dispatching).toBe(false);
     });
   });
 });

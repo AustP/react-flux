@@ -1,20 +1,20 @@
-import { StatusObject } from './flux';
+import { EventObject } from './flux';
 import stateManager, { State } from './stateManager';
 
 type DispatchCallback = (
   event: string,
   ...payload: any[]
-) => Promise<StatusObject>;
+) => Promise<EventObject>;
 type Reducer<T extends State> = (state: T) => State;
 type Selector<T extends State> = (state: T, ...args: any[]) => unknown;
 type SideEffect<T extends State> = {
-  promise: Promise<Reducer<T> | StatusObject | void>;
+  promise: Promise<Reducer<T> | EventObject | void>;
   store: Store<T>;
 };
 type SideEffectRunner<T extends State> = (
   dispatch: DispatchCallback,
   ...payload: any[]
-) => Promise<Reducer<T> | StatusObject | void> | Reducer<T> | void;
+) => Promise<Reducer<T> | EventObject | void> | Reducer<T> | void;
 type UnregisterCallback = () => void;
 
 type HasUndefined<T> = undefined extends T ? true : false;

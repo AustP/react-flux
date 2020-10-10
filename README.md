@@ -269,13 +269,13 @@ if (error) {
 
 ### Getting an Event's Status
 
-In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectStatus` and `useStatus`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
+In our applications, we often want to display loading indicators while waiting for a side-effect to finish. Additionally we want to let the user know when an error occurs. react-flux makes this easy by providing two methods: `selectEvent` and `useEvent`. (See [When to Call the select* Methods vs the use* Methods](#when-to-call-the-select-methods-vs-the-use-methods)). These methods give you access to an event's status. Let's update our `LoginForm` component to display a loading indicator and handle errors.
 
 ```(tsx)
   export default function LoginForm() {
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
-+   const { dispatched, dispatching, error, payload } = flux.useStatus('auth/login');
++   const { dispatching, error, payload } = flux.useEvent('auth/login');
 +
 +   if (error) {
 +     console.log(payload);
@@ -309,6 +309,55 @@ Now, if there is an error, we log the event's latest payload and display that er
 
 **NOTE: The `dispatched` key will be true on the render that the event finishes dispatching.**  
 **NOTE: The `payload` key will always be set to the payload of the latest dispatched event.**
+
+#### Listening for Event Dispatching and Event Resolution
+
+We are often interested in two points of an event's lifecycle: the moment the event is dispatched, and the moment the event is resolved, i.e. finishes reducing. There are two methods in the library to handle these situations. `useDispatchedEvent` and `useResolvedEvent`. We can rewrite the `LoginForm` component to use these methods rather than `useEvent`.
+
+Notice that the payload arguments are passed to the side-effect of `useDispatchedEvent` and the event status object is passed to the side-effect of `useResolvedEvent`.
+
+```(tsx)
+  export default function LoginForm() {
++   const [dispatching, setDispatching] = React.useState(false);
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
++
++   flux.useDispatchedEvent('auth/login', (email, password) => {
++     setDispatching(true);
++   });
++   flux.useResolvedEvent('auth/login', ({ error, payload }) => {
++     setDispatching(false);
++     if (error) {
++       console.log(payload);
++     }
++   });
+
+    return <>
+      <input
+        onChange={(e) => setEmail(e.target.value)}
+        type='email'
+        value={email}
+      />
+      <input
+        onChange={(e) => setPassword(e.target.value)}
+        type='password'
+        value={password}
+      />
+      <button
++       disabled={dispatching}
+        onClick={() => flux.dispatch('auth/login', email, password)}
+        type='button'
+      >
+-       Login
++       {dispatching ? 'Authenticating...' : 'Login'}
+      </button>
+    </>;
+  }
+```
+
+The key takeaway here is: if you need to trigger side-effects during an event's lifecycle, use `useDispatchedEvent` and `useResolvedEvent`. Otherwise, use `useEvent`.
+
+#### Error Handling
 
 Let's talk a little bit more about error handling. If a side-effect runner or a reducer throws an error that isn't caught, then that thrown error will be set to the `error` key. Additionally, react-flux will dispatch the `flux/error` event with the name of the event that threw the error, the thrown error, and the payload that the event was dispatched with.
 
@@ -488,7 +537,7 @@ store.register('auth/reauthenticate', (dispatch) => {
 
 ## When to Call the select\* Methods vs the use\* Methods
 
-As the names imply, the `useState`/`useStatus` methods not only retreive the values (like the `selectState`/`selectStatus` methods) but they additionally register for changes via React hooks. This has some implications on where we can call these methods.
+As the names imply, the `useEvent`/`useState` methods not only retreive the values (like the `selectEvent`/`selectState` methods) but they additionally register for changes via React hooks. This has some implications on where we can call these methods.
 
 The biggest factor of determining when to call the `select*` methods vs the `use*` methods is the location of the code that is calling these methods.
 

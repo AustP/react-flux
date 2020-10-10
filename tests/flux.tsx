@@ -54,9 +54,9 @@ beforeAll(() => {
 });
 
 describe('flux', () => {
-  describe('event statuses', () => {
+  describe('events', () => {
     test("that aren't in the system", () => {
-      const status = flux.selectStatus('nonexistent/event');
+      const status = flux.selectEvent('nonexistent/event');
       expect(status).toEqual({
         dispatched: false,
         dispatching: false,
@@ -66,7 +66,7 @@ describe('flux', () => {
     });
 
     test('that are in the system', () => {
-      const status = flux.selectStatus('warcamp2/addBridgeCrew');
+      const status = flux.selectEvent('warcamp2/addBridgeCrew');
       expect(status).toEqual({
         dispatched: false,
         dispatching: false,
@@ -77,7 +77,7 @@ describe('flux', () => {
 
     test('that are dispatching synchronously', async () => {
       function DynamicComponent() {
-        const status = flux.useStatus('warcamp2/addBridgeCrew');
+        const status = flux.useEvent('warcamp2/addBridgeCrew');
         return <span>{status.dispatching ? 'adding' : 'stable'}</span>;
       }
 
@@ -87,11 +87,17 @@ describe('flux', () => {
       await act(() => flux.dispatch('warcamp2/addBridgeCrew'));
       expect(screen.queryByText('adding')).toBeNull();
       expect(screen.getByText('stable')).toBeDefined();
+
+      // we need to add one more tick timeout into act because the event
+      // status changes on the next tick, and the test will complain if we don't
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
     });
 
     test('that are dispatching asynchronously', async () => {
       function DynamicComponent() {
-        const status = flux.useStatus('warcamp2/recruitSoldiers');
+        const status = flux.useEvent('warcamp2/recruitSoldiers');
         return <span>{status.dispatching ? 'adding' : 'stable'}</span>;
       }
 
@@ -104,23 +110,31 @@ describe('flux', () => {
         await new Promise((resolve) =>
           setTimeout(resolve, TIMEOUT_RECRUIT_SOLDIERS / 2),
         );
-        expect(screen.queryByText('stable')).toBeNull();
-        expect(screen.getByText('adding')).toBeDefined();
+      });
+      expect(screen.queryByText('stable')).toBeNull();
+      expect(screen.getByText('adding')).toBeDefined();
 
+      await act(async () => {
         await new Promise((resolve) =>
           setTimeout(resolve, TIMEOUT_RECRUIT_SOLDIERS / 2),
         );
-        expect(screen.queryByText('adding')).toBeNull();
-        expect(screen.getByText('stable')).toBeDefined();
+      });
+      expect(screen.queryByText('adding')).toBeNull();
+      expect(screen.getByText('stable')).toBeDefined();
+
+      // we need to add one more tick timeout into act because the event
+      // status changes on the next tick, and the test will complain if we don't
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
     });
 
     test('that error during side-effects', async () => {
-      let status = flux.selectStatus('warcamp2/surrenderImmediately');
+      let status = flux.selectEvent('warcamp2/surrenderImmediately');
       expect(status.error).toBe(null);
 
       flux.dispatch('warcamp2/surrenderImmediately');
-      status = flux.selectStatus('warcamp2/surrenderImmediately');
+      status = flux.selectEvent('warcamp2/surrenderImmediately');
       expect(status.error!.message).toBe('We will never surrender!');
 
       status = await flux.dispatch('warcamp2/surrenderImmediately');
@@ -128,15 +142,15 @@ describe('flux', () => {
     });
 
     test('that error during reduction', async () => {
-      let status = flux.selectStatus('warcamp2/surrender');
+      let status = flux.selectEvent('warcamp2/surrender');
       expect(status.error).toBe(null);
 
       flux.dispatch('warcamp2/surrender');
-      status = flux.selectStatus('warcamp2/surrender');
+      status = flux.selectEvent('warcamp2/surrender');
       expect(status.error).toBe(null);
 
       await new Promise((resolve) => setTimeout(resolve, 0));
-      status = flux.selectStatus('warcamp2/surrender');
+      status = flux.selectEvent('warcamp2/surrender');
       expect(status.error!.message).toBe('We will never surrender!');
 
       status = await flux.dispatch('warcamp2/surrender');
@@ -145,36 +159,92 @@ describe('flux', () => {
 
     test('contain the latest payload information', async () => {
       await act(async () => {
-        let status = flux.selectStatus('warcamp2/paySoldiers');
+        let status = flux.selectEvent('warcamp2/paySoldiers');
         expect(status.payload).toEqual([]);
 
         flux.dispatch('warcamp2/paySoldiers', 100, 500, 1000);
-        status = flux.selectStatus('warcamp2/paySoldiers');
+        status = flux.selectEvent('warcamp2/paySoldiers');
         expect(status.payload).toEqual([100, 500, 1000]);
 
         await new Promise((resolve) =>
           setTimeout(resolve, TIMEOUT_PAY_SOLDIERS),
         );
-        status = flux.selectStatus('warcamp2/paySoldiers');
+        status = flux.selectEvent('warcamp2/paySoldiers');
         expect(status.payload).toEqual([100, 500, 1000]);
 
         flux.dispatch('warcamp2/paySoldiers', 90, 450, 900);
-        status = flux.selectStatus('warcamp2/paySoldiers');
+        status = flux.selectEvent('warcamp2/paySoldiers');
         expect(status.payload).toEqual([90, 450, 900]);
       });
     });
 
     test('contain whether or not they were just dispatched', async () => {
       await act(async () => {
-        let status = flux.selectStatus('warcamp2/fightForGemheart');
+        let status = flux.selectEvent('warcamp2/fightForGemheart');
         expect(status.dispatched).toEqual(false);
 
         status = await flux.dispatch('warcamp2/fightForGemheart');
         expect(status.dispatched).toEqual(true);
 
         await new Promise((resolve) => setTimeout(resolve, 0));
-        status = flux.selectStatus('warcamp2/fightForGemheart');
+        status = flux.selectEvent('warcamp2/fightForGemheart');
         expect(status.dispatched).toEqual(false);
+      });
+    });
+
+    test('can be used to trigger side-effects in components', async () => {
+      const sideEffect = jest.fn((privatePay, officerPay, generalPay) => {
+        expect(privatePay).toEqual(100);
+        expect(officerPay).toEqual(500);
+        expect(generalPay).toEqual(1000);
+      });
+
+      function StaticComponent() {
+        flux.useDispatchedEvent('warcamp2/paySoldiers', sideEffect);
+        return null;
+      }
+
+      render(<StaticComponent />);
+
+      await act(async () => {
+        flux.dispatch('warcamp2/paySoldiers', 100, 500, 1000);
+        await new Promise((resolve) =>
+          setTimeout(resolve, TIMEOUT_PAY_SOLDIERS),
+        );
+      });
+
+      expect(sideEffect).toHaveBeenCalled();
+    });
+
+    test('can be used to trigger side-effects when they finish resolving', async () => {
+      const sideEffect = jest.fn(
+        ({ payload: [privatePay, officerPay, generalPay] }) => {
+          expect(privatePay).toEqual(100);
+          expect(officerPay).toEqual(500);
+          expect(generalPay).toEqual(1000);
+        },
+      );
+
+      function StaticComponent() {
+        flux.useResolvedEvent('warcamp2/paySoldiers', sideEffect);
+        return null;
+      }
+
+      render(<StaticComponent />);
+
+      await act(async () => {
+        flux.dispatch('warcamp2/paySoldiers', 100, 500, 1000);
+        await new Promise((resolve) =>
+          setTimeout(resolve, TIMEOUT_PAY_SOLDIERS),
+        );
+      });
+
+      expect(sideEffect).toHaveBeenCalled();
+
+      // we need to add one more tick timeout into act because the event
+      // status changes on the next tick, and the test will complain if we don't
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
     });
   });
