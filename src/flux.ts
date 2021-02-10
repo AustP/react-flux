@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import stateManager, { State } from './stateManager';
 import EventLogger from './EventLogger';
@@ -467,9 +467,9 @@ const useStore = <T extends State>(
   // keep the side-effect runners in a ref so we aren't constantly unregistering
   const ref = useDependentRef(sideEffectRunners, dependencies);
 
-  // wrap our registration in a useEffect so when the component unmounts,
+  // wrap our registration in a useLayoutEffect so when the component unmounts,
   // we won't have any memory leaks
-  useEffect(() => {
+  useLayoutEffect(() => {
     const unregisterCallbacks: UnregisterCallback[] = [];
     for (const event in ref.current) {
       if (ref.current.hasOwnProperty(event)) {

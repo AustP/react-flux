@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState as useReactState } from 'react';
+import { useCallback, useLayoutEffect, useState as useReactState } from 'react';
 
 type State = { readonly [key: string]: unknown };
 type Subscription = (value: any) => void;
@@ -72,12 +72,12 @@ const useState = <T = unknown>(property: string): [T, (value: T) => void] => {
   const stateValue = selectState<T>(property);
   const [reactValue, setReactValue] = useReactState<T>(stateValue);
 
-  // wrap our subscription in useEffect so
+  // wrap our subscription in useLayoutEffect so
   // we can unsubscribe when the component unmounts
-  useEffect(() => subscribe(property, (value: T) => setReactValue(value)), [
-    property,
-    setReactValue,
-  ]);
+  useLayoutEffect(
+    () => subscribe(property, (value: T) => setReactValue(value)),
+    [property, setReactValue],
+  );
 
   return [
     reactValue,
