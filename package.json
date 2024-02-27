@@ -41,7 +41,7 @@
   },
   "repository": "https://github.com/AustP/react-flux.git",
   "scripts": {
-    "build": "yarn clean && tsc --listEmittedFiles && webpack && cp ./build/src/*.* ./dist/",
+    "build": "yarn clean && tsc --listEmittedFiles && node --openssl-legacy-provider ./node_modules/.bin/webpack && cp ./build/src/*.* ./dist/",
     "clean": "rm -rf ./build && rm -rf ./dist",
     "lint": "tslint 'src/*.ts'",
     "release": "yarn lint && yarn build && npm login && np",
